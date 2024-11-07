@@ -17,7 +17,7 @@ async function impl(): Promise<void> {
   }
 
   if (children.length === 1) {
-    execCommand(`git checkout ${children[0].branchName}`);
+    console.log(execCommand(`git checkout ${children[0].branchName}`));
     return;
   }
 
@@ -34,8 +34,14 @@ async function impl(): Promise<void> {
     ]
   }]);
 
-  if (choice !== 'cancel') {
-    execCommand(`git checkout ${choice}`);
+  if (choice === 'cancel') {
+    return;
+  }
+
+  try {
+    console.log(execCommand(`git checkout ${choice}`));
+  } catch (e: unknown) {
+    console.error((e as Error).message);
   }
 }
 
