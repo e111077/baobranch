@@ -13,9 +13,17 @@ export const drop: CommandModule = {
     try {
       const state = loadState();
       const branchName = argv.branchName as string;
-
-      if (state.branches[branchName]) {
+      const droppedBranch = state.branches[branchName];
+      if (droppedBranch) {
         delete state.branches[branchName];
+
+        Object.values(state.branches).forEach((branch) => {
+          branch.children = branch.children.filter((child) => child !== branchName);
+          if (branch.parent === branchName) {
+            branch.parent = null;
+          }
+        });
+
         saveState(state);
         console.log(`Successfully removed ${branchName} from branch state cache.`);
       } else {
