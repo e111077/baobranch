@@ -1,6 +1,7 @@
 import { execSync, type StdioOptions } from 'child_process';
 import type { ArgumentsCamelCase, BuilderCallback, CommandModule } from 'yargs';
 import { loadState, saveState } from './branch-state/state.js';
+import { join } from 'path';
 
 export interface Command<T = any, U = {}> {
   command: string|string[];
@@ -174,3 +175,10 @@ export function createPrLink(branch: string, prNum: number): string {
   const repoName = execCommand('git remote get-url origin').replace(/.*\/([^/]*)\.git$/, '$1');
   return prNum ? `[#${prNum}](https://${process.env['GITHUB_DOMAIN']}/${repoName}/pull/${prNum})` : branch;
 }
+
+const GIT_ROOT = execCommand('git rev-parse --git-dir');
+
+/**
+ * The path to the user's .git/env file
+ */
+export const USER_ENV_LOCATION = join(GIT_ROOT, 'figbranch-user-env');
