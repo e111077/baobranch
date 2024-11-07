@@ -1,6 +1,6 @@
 import { loadState } from "../branch-state/state.js";
 import type { BranchState } from "../branch-state/types.js";
-import { type Branch, type Command, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber } from "../utils.js";
+import { type Branch, type Command, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber, getPrStatus } from "../utils.js";
 
 /**
  * Builds a complete branch hierarchy starting from a given branch
@@ -15,11 +15,15 @@ function buildBranchHierarchy(
   visited = new Set<string>(),
   parent?: Branch
 ): Branch {
+  const prNumber = getPrNumber(branchName);
+  const prStatus = prNumber === null ? 'unknown' : getPrStatus(prNumber);
+
   if (visited.has(branchName)) {
     return {
       branchName,
       children: [],
-      prNumber: getPrNumber(branchName),
+      prNumber,
+      prStatus,
       parent: parent ?? null,
       orphaned
     };
@@ -29,7 +33,8 @@ function buildBranchHierarchy(
 
   const branch: Branch = {
     branchName,
-    prNumber: getPrNumber(branchName),
+    prNumber,
+    prStatus,
     children: [],
     parent: parent ?? null,
     orphaned
@@ -49,8 +54,6 @@ function buildBranchHierarchy(
 function generateTables(): void {
   const state = loadState();
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const repoName = execCommand('git remote get-url origin')
-    .replace(/.*\/([^/]*)\.git$/, '$1');
 
   // Build the branch hierarchy starting from current branch
   const hierarchy = buildBranchHierarchy(currentBranch, state.branches[currentBranch]?.orphaned || false);

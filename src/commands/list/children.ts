@@ -1,6 +1,6 @@
 import type { ArgumentsCamelCase } from 'yargs';
 import type { FormatOptions } from "./options";
-import { type Command, execCommand, findChildren } from '../../utils.js';
+import { type Command, execCommand, findChildren, getBranchListAnnotations } from '../../utils.js';
 
 function impl(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
@@ -12,15 +12,16 @@ function impl(argv: ArgumentsCamelCase<FormatOptions>) {
   }
 
   const output = children.map(child => {
+    const annotations = getBranchListAnnotations(child);
     switch (argv.format) {
       case 'pr':
-        return `${child.prNumber || '(none)'}${child.orphaned ? ' (orphaned?)' : ''}`;
+        return `#${child.prNumber || '(none)'}${annotations}`;
       case 'branch':
-        return `${child.branchName}${child.orphaned ? ' (orphaned?)' : ''}`;
+        return `${child.branchName}${annotations}`;
       case 'both':
       default:
         return child.prNumber ?
-          `${child.branchName}#${child.prNumber}${child.orphaned ? ' (orphaned?)' : ''}` :
+          `${child.branchName}#${child.prNumber}${annotations}` :
           child.branchName;
     }
   });
