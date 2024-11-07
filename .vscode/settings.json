@@ -1,0 +1,16 @@
+{
+  "eslint.enable": true,
+  "eslint.validate": [
+    "typescript",
+    "typescriptreact"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.workingDirectories": [
+    {
+      "mode": "location"
+    }
+  ],
+  "eslint.debug": true
+}
