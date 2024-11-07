@@ -12,11 +12,14 @@ export interface Command<T = any, U = {}> {
 
 export interface Branch {
   prNumber: number | null;
+  prStatus: PRStatus;
   branchName: string;
   parent: Branch | null;
   children: Branch[];
   orphaned: boolean;
 }
+
+export type PRStatus = 'OPEN'|'MERGED'|'CLOSED'|'DRAFT'|'unknown';
 
 /**
  * Type guard to check if an error is an ExecError
@@ -62,6 +65,16 @@ export function getPrNumber(branch: string): number | null {
 }
 
 /**
+ * Retrieves the status of a given PR
+ *
+ * @param prNum The PR number to get the status of
+ * @returns The status of the PR
+ */
+export function getPrStatus(prNum: number): PRStatus {
+  return execCommand(`gh pr view ${prNum} --json state --jq '.state'`) as PRStatus;
+}
+
+/**
  * Gets the parent branch information for a given branch
  * @param branchName - The name of the branch to find the parent for
  * @returns A Branch object representing the parent branch
@@ -84,6 +97,7 @@ export function getParentBranch(branchName: string): Branch {
   return {
     branchName: parentBranchName,
     prNumber: prNumber,
+    prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
     parent: null,
     children: parentChildren,
     orphaned: parentChildren[0]?.parent?.orphaned || false
@@ -143,9 +157,11 @@ export function findChildren(parentBranchName: string): Branch[] {
   };
 
   saveState(state);
+  const prNumber = getPrNumber(parentBranchName);
   const parent: Branch = {
     branchName: parentBranchName,
-    prNumber: getPrNumber(parentBranchName),
+    prNumber: prNumber,
+    prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
     parent: null,
     children: [],
     orphaned: state.branches[parentBranchName]?.orphaned || false
@@ -156,6 +172,7 @@ export function findChildren(parentBranchName: string): Branch[] {
     const child = {
       branchName: childBranch,
       prNumber,
+      prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
       parent: parent,
       children: [],
       orphaned: state.branches[childBranch]?.orphaned || false,
@@ -200,3 +217,17 @@ const GIT_ROOT = execCommand('git rev-parse --git-dir');
  * The path to the user's .git/env file
  */
 export const USER_ENV_LOCATION = join(GIT_ROOT, 'figbranch-user-env');
+
+/**
+ * Determines the state of a branch and returns a string representing its state
+ * as formatted annotations
+ *
+ * @param branch The branch from which to get annotations
+ * @returns A string containing annotations for the branch
+ */
+export function getBranchListAnnotations(branch: Branch) {
+  const prStatusString = branch.prStatus !== 'unknown' ? `${branch.prStatus}` : '';
+  const orphanedString = branch.orphaned ? 'orphaned?' : '';
+  const joinedAnnotations = [prStatusString, orphanedString].filter(Boolean).join(' ').trim();
+  return joinedAnnotations ? ` (${joinedAnnotations})` : '';
+};
