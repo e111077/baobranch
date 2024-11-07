@@ -70,8 +70,10 @@ export function getParentBranch(branchName: string): Branch {
   let parentBranchName = execCommand(`git reflog show "${branchName}" | grep 'branch: Created from' | head -n1`)
     .replace(/.*Created from /, '');
 
-  if (!parentBranchName || parentBranchName === 'HEAD') {
-    parentBranchName = execCommand('git rev-parse --verify main >/dev/null 2>&1') ? 'main' : 'master';
+    if (!parentBranchName || parentBranchName === 'HEAD') {
+      // Check if 'main' branch exists without redirecting output
+      const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
+      parentBranchName = mainExists ? 'main' : 'master';
   }
 
   const prNumber = getPrNumber(parentBranchName);
@@ -94,17 +96,9 @@ export function getParentBranch(branchName: string): Branch {
  * @returns An array of Branch objects representing the child branches
  */
 export function findChildren(parentBranchName: string): Branch[] {
-  const state = loadState();
 
+  const state = loadState();
   const stateChildren = state.branches[parentBranchName]?.children || [];
-  // Mark all existing children as orphaned first
-  if (stateChildren) {
-    stateChildren.forEach(childBranch => {
-      if (state.branches[childBranch]) {
-        state.branches[childBranch].orphaned = true;
-      }
-    });
-  }
 
   // Get current children from git
   const allBranches = execCommand('git for-each-ref refs/heads/ --format="%(refname:short)"')
@@ -114,12 +108,20 @@ export function findChildren(parentBranchName: string): Branch[] {
   const currentChildren = allBranches
     .filter(branchName => branchName !== parentBranchName)
     .filter(branchName => {
-      // Get the first parent commit that's not in the child branch
-      const revListCmd = `git rev-list ${parentBranchName} --not ${branchName} --first-parent --max-count=1`;
-      const firstParentNotInChild = execCommand(revListCmd);
-      const isChild = !firstParentNotInChild;
+      // Instead of checking for any divergent commits, we should:
+      // 1. Find the merge base (common ancestor) of the two branches
+      // 2. Check if that merge base is the same as the parent's HEAD
 
-      // If it's a child, update state
+      // Get merge base
+      const mergeBaseCmd = `git merge-base ${parentBranchName} ${branchName}`;
+      const mergeBase = execCommand(mergeBaseCmd);
+
+      // Get parent's HEAD commit
+      const parentHeadCmd = `git rev-parse ${parentBranchName}`;
+      const parentHead = execCommand(parentHeadCmd);
+
+      const isChild = mergeBase === parentHead;
+
       if (isChild) {
         state.branches[branchName] = {
           ...state.branches[branchName] || {},
@@ -166,6 +168,22 @@ export function findChildren(parentBranchName: string): Branch[] {
 }
 
 /**
+ * Gets the domain of the GitHub repository
+ *
+ * @returns The domain of the GitHub repository
+ */
+function getGithubDomain(): string {
+  const remoteUrl = execCommand('git remote get-url origin');
+  if (remoteUrl.startsWith('https://')) {
+    // For HTTPS remotes: https://github.com/org/repo.git
+    return remoteUrl.split('/').slice(0, 3).join('/');
+  } else {
+    // For SSH remotes: git@github.com:org/repo.git
+    return `https://${remoteUrl.split('@')[1].split(':')[0]}`;
+  }
+}
+
+/**
  * Creates a markdown link to a PR
  * @param branch - The name of the branch
  * @param prNum - The PR number
@@ -173,7 +191,7 @@ export function findChildren(parentBranchName: string): Branch[] {
  */
 export function createPrLink(branch: string, prNum: number): string {
   const repoName = execCommand('git remote get-url origin').replace(/.*\/([^/]*)\.git$/, '$1');
-  return prNum ? `[#${prNum}](https://${process.env['GITHUB_DOMAIN']}/${repoName}/pull/${prNum})` : branch;
+  return prNum ? `[#${prNum}](https://${getGithubDomain()}/${repoName}/pull/${prNum})` : branch;
 }
 
 const GIT_ROOT = execCommand('git rev-parse --git-dir');
