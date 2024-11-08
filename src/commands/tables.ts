@@ -51,66 +51,62 @@ function generateTables(): void {
   const hierarchy = buildBranchHierarchy(currentBranch, state.branches[currentBranch]?.orphaned || false);
   const heirarchyPrNumber = getPrNumber(hierarchy.branchName);
 
-  // Print current branch with PR
-  if (heirarchyPrNumber) {
-    console.log(`${hierarchy.branchName} ${createPrLink(hierarchy.branchName, heirarchyPrNumber)}`);
-  } else {
-    console.log(hierarchy.branchName);
-  }
-  console.log();
+  function printTable(branch: Branch, parent?: {branch: Branch, prNumber: number|null}) {
+    const branchPrNumber = getPrNumber(branch.branchName);
 
-  // Print table headers
-  console.log("| Parent | Children |");
-  console.log("| -- | -- |");
-
-  // Get and process parent display
-  let parentDisplay: string;
-  const parentBranch = getParentBranch(currentBranch);  // Get parent directly
-
-  if (parentBranch.branchName !== 'main' && parentBranch.branchName !== 'master') {
-    const prNumber = getPrNumber(parentBranch.branchName);
-    parentDisplay = prNumber ?
-      createPrLink(parentBranch.branchName, prNumber) :
-      parentBranch.branchName;
-  } else {
-    parentDisplay = "(tip)";
-  }
-
-  // Process children
-  if (hierarchy.children.length > 0) {
-    // Display first child in table
-    const firstChild = hierarchy.children[0];
-    const prNumber = getPrNumber(firstChild.branchName);
-    const childDisplay = prNumber ?
-      createPrLink(firstChild.branchName, prNumber) :
-      firstChild.branchName;
-
-    console.log(`| ${parentDisplay} | ${childDisplay} |`);
-    console.log();
-
-    // Process each child
-    for (const child of hierarchy.children) {
-      const prNumber = getPrNumber(child.branchName);
-      if (prNumber) {
-        console.log(`${child.branchName} ${createPrLink(child.branchName, prNumber)}`);
-      } else {
-        console.log(child.branchName);
-      }
-      console.log();
-
-      console.log("| Parent | Children |");
-      console.log("| -- | -- |");
-
-      const currentDisplay = heirarchyPrNumber ?
-        createPrLink(hierarchy.branchName, heirarchyPrNumber) :
-        hierarchy.branchName;
-
-      console.log(`| ${currentDisplay} | '' |`);
-      console.log();
+    // Print current branch with PR
+    if (branchPrNumber) {
+      console.log(`${branch.branchName} ${createPrLink(branch.branchName, branchPrNumber)}`);
+    } else {
+      console.log(branch.branchName);
     }
-  } else {
-    console.log(`| ${parentDisplay} | '' |`);
+
+    // Print table headers
+    console.log(`
+| Parent | Children |
+| -- | -- |`);
+
+  let parentDisplay = '';
+
+  if (!parent) {
+    const parentBranch = getParentBranch(branch.branchName);
+    parent = {branch: parentBranch, prNumber: getPrNumber(parentBranch.branchName)};
   }
+
+  const prNumber = parent.prNumber;
+  const parentBranch = parent.branch;
+
+  parentDisplay = prNumber ?
+    createPrLink(parentBranch.branchName, prNumber) :
+    parentBranch.branchName;
+
+    let childDisplay = '';
+    const children: {branch: Branch, prNumber: number|null}[] = [];
+
+    for (const child of branch.children) {
+      const prNumber = getPrNumber(child.branchName);
+
+      children.push({branch: child, prNumber});
+
+      childDisplay += prNumber ?
+        createPrLink(child.branchName, prNumber) :
+        child.branchName;
+      childDisplay += ', ';
+    }
+
+    childDisplay = childDisplay.replace(/,\s*$/, '');  // Remove trailing comma
+
+    console.log(`| ${parentDisplay} | ${childDisplay} |
+
+`);
+
+    // Recursively print children
+    for (const child of children) {
+      printTable(child.branch, {branch, prNumber: branchPrNumber});
+    }
+  }
+
+  printTable(hierarchy);
 }
 
 export const tables: Command = {
