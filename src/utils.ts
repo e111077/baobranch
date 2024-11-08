@@ -189,14 +189,18 @@ export function findChildren(parentBranchName: string): Branch[] {
  *
  * @returns The domain of the GitHub repository
  */
-function getGithubDomain(): string {
-  const remoteUrl = execCommand('git remote get-url origin');
+function getGithubUrl(): string {
+  const remoteUrl = execCommand('git remote get-url origin')
+    // remove .git from the end of the URL
+    .replace(/.git$/, '');
   if (remoteUrl.startsWith('https://')) {
-    // For HTTPS remotes: https://github.com/org/repo.git
-    return remoteUrl.split('/').slice(0, 3).join('/');
+    // For HTTPS remotes: https://github.com/org/repo
+    return remoteUrl;
   } else {
-    // For SSH remotes: git@github.com:org/repo.git
-    return `https://${remoteUrl.split('@')[1].split(':')[0]}`;
+    // For SSH remotes: git@github.com:org/repo
+    const [domain, orgAndRepo] = remoteUrl.split('@')[1].split(':');
+
+    return `https://${domain}/${orgAndRepo}`;
   }
 }
 
@@ -207,8 +211,7 @@ function getGithubDomain(): string {
  * @returns A markdown formatted link to the PR
  */
 export function createPrLink(branch: string, prNum: number): string {
-  const repoName = execCommand('git remote get-url origin').replace(/.*\/([^/]*)\.git$/, '$1');
-  return prNum ? `[#${prNum}](https://${getGithubDomain()}/${repoName}/pull/${prNum})` : branch;
+  return prNum ? `[#${prNum}](${getGithubUrl()}/pull/${prNum})` : branch;
 }
 
 const GIT_ROOT = execCommand('git rev-parse --git-dir');
