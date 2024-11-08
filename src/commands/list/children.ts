@@ -12,16 +12,16 @@ function impl(argv: ArgumentsCamelCase<FormatOptions>) {
   }
 
   const output = children.map(child => {
-    const annotations = getBranchListAnnotations(child);
+    const notes = getBranchListAnnotations(child);
     switch (argv.format) {
       case 'pr':
-        return `#${child.prNumber || '(none)'}${annotations}`;
+        return `#${notes.prNumber || '(none)'}${notes.annotations}`;
       case 'branch':
-        return `${child.branchName}${annotations}`;
+        return `${child.branchName}${notes.annotations}`;
       case 'both':
       default:
-        return child.prNumber ?
-          `${child.branchName}#${child.prNumber}${annotations}` :
+        return notes.prNumber ?
+          `${child.branchName}#${notes.prNumber}${notes.annotations}` :
           child.branchName;
     }
   });
