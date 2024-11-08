@@ -16,7 +16,7 @@ function impl(argv: ArgumentsCamelCase<FormatOptions>) {
       break;
     case 'both':
       if (notes.prNumber) {
-        console.log(`${parent.branchName}#${notes.prNumber} + annotations`);
+        console.log(`${parent.branchName}#${notes.prNumber}${notes.annotations}`);
       } else {
         console.log(parent.branchName);
       }
