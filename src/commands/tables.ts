@@ -1,5 +1,4 @@
 import { loadState } from "../branch-state/state.js";
-import type { BranchState } from "../branch-state/types.js";
 import { type Branch, type Command, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber, getPrStatus } from "../utils.js";
 
 /**
