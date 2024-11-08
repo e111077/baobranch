@@ -14,15 +14,10 @@ function buildBranchHierarchy(
   visited = new Set<string>(),
   parent?: Branch
 ): Branch {
-  const prNumber = getPrNumber(branchName);
-  const prStatus = prNumber === null ? 'unknown' : getPrStatus(prNumber);
-
   if (visited.has(branchName)) {
     return {
       branchName,
       children: [],
-      prNumber,
-      prStatus,
       parent: parent ?? null,
       orphaned
     };
@@ -32,8 +27,6 @@ function buildBranchHierarchy(
 
   const branch: Branch = {
     branchName,
-    prNumber,
-    prStatus,
     children: [],
     parent: parent ?? null,
     orphaned
@@ -56,10 +49,11 @@ function generateTables(): void {
 
   // Build the branch hierarchy starting from current branch
   const hierarchy = buildBranchHierarchy(currentBranch, state.branches[currentBranch]?.orphaned || false);
+  const heirarchyPrNumber = getPrNumber(hierarchy.branchName);
 
   // Print current branch with PR
-  if (hierarchy.prNumber) {
-    console.log(`${hierarchy.branchName} ${createPrLink(hierarchy.branchName, hierarchy.prNumber)}`);
+  if (heirarchyPrNumber) {
+    console.log(`${hierarchy.branchName} ${createPrLink(hierarchy.branchName, heirarchyPrNumber)}`);
   } else {
     console.log(hierarchy.branchName);
   }
@@ -72,9 +66,11 @@ function generateTables(): void {
   // Get and process parent display
   let parentDisplay: string;
   const parentBranch = getParentBranch(currentBranch);  // Get parent directly
+
   if (parentBranch.branchName !== 'main' && parentBranch.branchName !== 'master') {
-    parentDisplay = parentBranch.prNumber ?
-      createPrLink(parentBranch.branchName, parentBranch.prNumber) :
+    const prNumber = getPrNumber(parentBranch.branchName);
+    parentDisplay = prNumber ?
+      createPrLink(parentBranch.branchName, prNumber) :
       parentBranch.branchName;
   } else {
     parentDisplay = "(tip)";
@@ -84,8 +80,9 @@ function generateTables(): void {
   if (hierarchy.children.length > 0) {
     // Display first child in table
     const firstChild = hierarchy.children[0];
-    const childDisplay = firstChild.prNumber ?
-      createPrLink(firstChild.branchName, firstChild.prNumber) :
+    const prNumber = getPrNumber(firstChild.branchName);
+    const childDisplay = prNumber ?
+      createPrLink(firstChild.branchName, prNumber) :
       firstChild.branchName;
 
     console.log(`| ${parentDisplay} | ${childDisplay} |`);
@@ -93,8 +90,9 @@ function generateTables(): void {
 
     // Process each child
     for (const child of hierarchy.children) {
-      if (child.prNumber) {
-        console.log(`${child.branchName} ${createPrLink(child.branchName, child.prNumber)}`);
+      const prNumber = getPrNumber(child.branchName);
+      if (prNumber) {
+        console.log(`${child.branchName} ${createPrLink(child.branchName, prNumber)}`);
       } else {
         console.log(child.branchName);
       }
@@ -103,8 +101,8 @@ function generateTables(): void {
       console.log("| Parent | Children |");
       console.log("| -- | -- |");
 
-      const currentDisplay = hierarchy.prNumber ?
-        createPrLink(hierarchy.branchName, hierarchy.prNumber) :
+      const currentDisplay = heirarchyPrNumber ?
+        createPrLink(hierarchy.branchName, heirarchyPrNumber) :
         hierarchy.branchName;
 
       console.log(`| ${currentDisplay} | '' |`);
