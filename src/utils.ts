@@ -4,22 +4,20 @@ import { loadState, saveState } from './branch-state/state.js';
 import { join } from 'path';
 
 export interface Command<T = any, U = {}> {
-  command: string|string[];
+  command: string | string[];
   description: string;
   impl: (argv: ArgumentsCamelCase<T>) => void;
-  builder?: CommandModule<U, T>['builder']|BuilderCallback<U , T>;
+  builder?: CommandModule<U, T>['builder'] | BuilderCallback<U, T>;
 }
 
 export interface Branch {
-  prNumber: number | null;
-  prStatus: PRStatus;
   branchName: string;
   parent: Branch | null;
   children: Branch[];
   orphaned: boolean;
 }
 
-export type PRStatus = 'OPEN'|'MERGED'|'CLOSED'|'DRAFT'|'unknown';
+export type PRStatus = 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT' | 'unknown';
 
 /**
  * Type guard to check if an error is an ExecError
@@ -74,33 +72,51 @@ export function getPrStatus(prNum: number): PRStatus {
   return execCommand(`gh pr view ${prNum} --json state --jq '.state'`) as PRStatus;
 }
 
+function formatBranchContains(containsOutput: string, branchName: string) {
+  return new Set(containsOutput.split('\n')
+    .map((branch) => branch.replace('*', '').trim())
+    .filter(branch => branch && branch !== branchName));
+}
+
 /**
  * Gets the parent branch information for a given branch
  * @param branchName - The name of the branch to find the parent for
  * @returns A Branch object representing the parent branch
  */
 export function getParentBranch(branchName: string): Branch {
-  let parentBranchName = execCommand(`git reflog show "${branchName}" | grep 'branch: Created from' | head -n1`)
-    .replace(/.*Created from /, '');
+  const children = formatBranchContains(
+    execCommand(`git branch --contains $(git rev-parse ${branchName})`),
+    branchName
+  );
+  const possibleParents = formatBranchContains(
+    execCommand(`git branch --contains $(git rev-parse ${branchName}^)`),
+    branchName
+  );
 
-    if (!parentBranchName || parentBranchName === 'HEAD') {
-      // Check if 'main' branch exists without redirecting output
-      const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
-      parentBranchName = mainExists ? 'main' : 'master';
+  children.forEach(child => {
+    possibleParents.delete(child);
+  });
+
+  possibleParents.forEach(possibleParent => {
+    const parentNotInBranch = execCommand(`git branch --no-contains $(git rev-parse ${possibleParent})`);
+    if (parentNotInBranch.includes(branchName)) {
+      possibleParents.delete(possibleParent);
+    }
+  });
+
+  let parentBranchName = possibleParents.values().next().value;
+
+  if (!parentBranchName || parentBranchName === 'HEAD') {
+    // Check if 'main' branch exists
+    const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
+    parentBranchName = mainExists ? 'main' : 'master';
   }
-
-  const prNumber = getPrNumber(parentBranchName);
-
-  // First, find children of the parent to update the cache
-  const parentChildren = findChildren(parentBranchName);
 
   return {
     branchName: parentBranchName,
-    prNumber: prNumber,
-    prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
     parent: null,
-    children: parentChildren,
-    orphaned: parentChildren[0]?.parent?.orphaned || false
+    children: [],
+    orphaned: false
   };
 }
 
@@ -110,43 +126,36 @@ export function getParentBranch(branchName: string): Branch {
  * @returns An array of Branch objects representing the child branches
  */
 export function findChildren(parentBranchName: string): Branch[] {
-
   const state = loadState();
   const stateChildren = state.branches[parentBranchName]?.children || [];
+  stateChildren.forEach(child => {
+    state.branches[child].orphaned = true;
+  });
+  const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
+  const currentChildren = formatBranchContains(
+    execCommand(`git branch --contains ${parentCommit}`),
+    parentBranchName
+  );
 
-  // Get current children from git
-  const allBranches = execCommand('git for-each-ref refs/heads/ --format="%(refname:short)"')
-    .split('\n')
-    .filter(Boolean);
+  currentChildren.forEach(child => {
+    const acutalParent = getParentBranch(child).branchName;
+    if (acutalParent !== parentBranchName) {
+      currentChildren.delete(child);
+      return;
+    }
 
-  const currentChildren = allBranches
-    .filter(branchName => branchName !== parentBranchName)
-    .filter(branchName => {
-      // Instead of checking for any divergent commits, we should:
-      // 1. Find the merge base (common ancestor) of the two branches
-      // 2. Check if that merge base is the same as the parent's HEAD
+    if (state.branches[child]) {
+      state.branches[child].orphaned = false;
+      return;
+    }
 
-      // Get merge base
-      const mergeBaseCmd = `git merge-base ${parentBranchName} ${branchName}`;
-      const mergeBase = execCommand(mergeBaseCmd);
-
-      // Get parent's HEAD commit
-      const parentHeadCmd = `git rev-parse ${parentBranchName}`;
-      const parentHead = execCommand(parentHeadCmd);
-
-      const isChild = mergeBase === parentHead;
-
-      if (isChild) {
-        state.branches[branchName] = {
-          ...state.branches[branchName] || {},
-          parent: parentBranchName,
-          children: state.branches[branchName]?.children || [],
-          orphaned: false
-        };
-      }
-
-      return isChild;
-    });
+    state.branches[child] = {
+      parent: parentBranchName,
+      children: [],
+      orphaned: false,
+      lastKnownParentCommit: parentCommit
+    };
+  });
 
   const allChildren = Array.from(new Set([...stateChildren, ...currentChildren]));
 
@@ -157,11 +166,8 @@ export function findChildren(parentBranchName: string): Branch[] {
   };
 
   saveState(state);
-  const prNumber = getPrNumber(parentBranchName);
   const parent: Branch = {
     branchName: parentBranchName,
-    prNumber: prNumber,
-    prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
     parent: null,
     children: [],
     orphaned: state.branches[parentBranchName]?.orphaned || false
@@ -229,8 +235,13 @@ export const USER_ENV_LOCATION = join(GIT_ROOT, 'figbranch-user-env');
  * @returns A string containing annotations for the branch
  */
 export function getBranchListAnnotations(branch: Branch) {
-  const prStatusString = branch.prStatus !== 'unknown' ? `${branch.prStatus}` : '';
+  const prNumber = getPrNumber(branch.branchName);
+  const prStatus = prNumber === null ? 'unknown' : getPrStatus(prNumber);
+  const prStatusString = prStatus !== 'unknown' ? `${prStatus}` : '';
   const orphanedString = branch.orphaned ? 'orphaned?' : '';
   const joinedAnnotations = [prStatusString, orphanedString].filter(Boolean).join(' ').trim();
-  return joinedAnnotations ? ` (${joinedAnnotations})` : '';
+  return {
+    prNumber,
+    annotations: joinedAnnotations ? ` (${joinedAnnotations})` : '',
+  }
 };

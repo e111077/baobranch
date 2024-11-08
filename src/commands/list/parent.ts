@@ -5,18 +5,18 @@ import { type Command, execCommand, getBranchListAnnotations, getParentBranch } 
 function impl(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
   const parent = getParentBranch(currentBranch);
-  const annotations = getBranchListAnnotations(parent);
+  const notes = getBranchListAnnotations(parent);
 
   switch (argv.format) {
     case 'pr':
-      console.log(`#${parent.prNumber || ''}${annotations}`);
+      console.log(`#${notes.prNumber || ''}${notes.annotations}`);
       break;
     case 'branch':
-      console.log(parent.branchName + annotations);
+      console.log(parent.branchName + notes.annotations);
       break;
     case 'both':
-      if (parent.prNumber) {
-        console.log(`${parent.branchName}#${parent.prNumber} + annotations`);
+      if (notes.prNumber) {
+        console.log(`${parent.branchName}#${notes.prNumber} + annotations`);
       } else {
         console.log(parent.branchName);
       }
