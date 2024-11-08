@@ -80,18 +80,18 @@ export function getPrStatus(prNum: number): PRStatus {
  * @returns A Branch object representing the parent branch
  */
 export function getParentBranch(branchName: string): Branch {
-  let parentBranchName = execCommand(`git reflog show "${branchName}" | grep 'branch: Created from' | head -n1`)
-    .replace(/.*Created from /, '');
+  // Get previous commit
+  const previousCommit = execCommand(`git rev-parse ${branchName}^`);
+  // Get branch name for that commit
+  const branchNameParts = execCommand(`git name-rev --name-only ${previousCommit}`).split('/');
+  let parentBranchName = branchNameParts[branchNameParts.length - 1];
 
-    if (!parentBranchName || parentBranchName === 'HEAD') {
-      // Check if 'main' branch exists without redirecting output
-      const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
-      parentBranchName = mainExists ? 'main' : 'master';
+  if (!parentBranchName || parentBranchName === 'HEAD') {
+    const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
+    parentBranchName = mainExists ? 'main' : 'master';
   }
 
   const prNumber = getPrNumber(parentBranchName);
-
-  // First, find children of the parent to update the cache
   const parentChildren = findChildren(parentBranchName);
 
   return {
