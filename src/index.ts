@@ -5,11 +5,13 @@ import { tables } from './commands/tables.js';
 import { list } from './commands/list/index.js';
 import { next } from './commands/next.js';
 import { prev } from './commands/prev.js';
-import { rebaseParent } from './commands/rebase/parent.js';
+import { sync } from './commands/sync.js';
 import { pull } from './commands/pull.js';
 import { cache } from './commands/cache/index.js';
+import { amend } from './commands/amend.js';
+import { unamend } from './commands/unamend.js';
 import { config as configCommand } from './commands/config/index.js';
-import { config } from 'dotenv'
+import {config} from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import path from 'path'
@@ -28,7 +30,9 @@ yargs(hideBin(process.argv))
   .command(list)
   .command(next.command, next.description, {}, next.impl)
   .command(prev.command, prev.description, {}, prev.impl)
-  .command(rebaseParent.command, rebaseParent.description, {}, rebaseParent.impl)
+  .command(amend)
+  .command(unamend)
+  .command(sync)
   .command(pull.command, pull.description, {}, pull.impl)
   .command(cache)
   .command(configCommand)
