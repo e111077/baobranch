@@ -1,8 +1,8 @@
-import type { ArgumentsCamelCase } from "yargs";
+import type { ArgumentsCamelCase, CommandModule } from "yargs";
 import type { FormatOptions } from "./options";
-import { type Command, execCommand, getBranchListAnnotations, getParentBranch } from "../../utils.js";
+import { execCommand, getBranchListAnnotations, getParentBranch } from "../../utils.js";
 
-function impl(argv: ArgumentsCamelCase<FormatOptions>) {
+function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
   const parent = getParentBranch(currentBranch);
   const notes = getBranchListAnnotations(parent);
@@ -26,6 +26,6 @@ function impl(argv: ArgumentsCamelCase<FormatOptions>) {
 
 export const listParent = {
   command: 'parent' as const,
-  description: 'List parent branch',
-  impl,
-} satisfies Command<FormatOptions>;
+  describe: 'List parent branch',
+  handler,
+} satisfies CommandModule<{}, FormatOptions>;
