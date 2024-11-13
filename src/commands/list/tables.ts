@@ -2,7 +2,9 @@
 // Purpose: Generates markdown tables showing Git branch and PR relationships
 
 import type { CommandModule } from "yargs";
-import { type Branch, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber } from "../../utils.js";
+import { type Branch, createPrLink, execCommand, getPrNumber } from "../../utils.js";
+import { getParentBranch } from "../../tree-nav/parent.js";
+import { findChildren } from "../../tree-nav/children.js";
 
 /**
  * Builds a complete branch hierarchy starting from a given branch by recursively finding child branches

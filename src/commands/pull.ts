@@ -1,4 +1,5 @@
-import { execCommand, findChildren, type Command } from "../utils.js";
+import { execCommand, type Command } from "../utils.js";
+import { findChildren } from "../tree-nav/children.js";
 import { markStale } from '../tags/stale.js';
 
 export const pull: Command = {

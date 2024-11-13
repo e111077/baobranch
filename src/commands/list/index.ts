@@ -2,7 +2,9 @@ import { listParent } from './parent.js';
 import { listChildren } from './children.js';
 import type { FormatOptions } from "./options";
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
-import { execCommand, findChildren, getBranchListAnnotations, getParentBranch, type Branch } from '../../utils.js';
+import { execCommand, getBranchListAnnotations } from '../../utils.js';
+import { getParentBranch } from '../../tree-nav/parent.js';
+import { findChildren } from '../../tree-nav/children.js';
 import { listTree } from './tree.js';
 import { listTables } from './tables.js';
 
