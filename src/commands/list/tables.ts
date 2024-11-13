@@ -60,9 +60,18 @@ function buildBranchHierarchy(
 function generateTables(): void {
   // Get the current git branch
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
+  const mainOrMaster = execCommand('git branch --list main') ? 'main' : 'master';
+  let originalBranch = currentBranch;
+  let parentBranch = getParentBranch(currentBranch);
+
+  // Find the root branch of the current branch
+  while (parentBranch && parentBranch.branchName && parentBranch.branchName !== mainOrMaster) {
+    originalBranch = parentBranch.branchName;
+    parentBranch = getParentBranch(parentBranch.branchName);
+  }
 
   // Build complete branch hierarchy starting from current branch
-  const hierarchy = buildBranchHierarchy(currentBranch);
+  const hierarchy = buildBranchHierarchy(originalBranch);
 
   /**
    * Recursively prints markdown tables for a branch and all its children
