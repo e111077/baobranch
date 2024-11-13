@@ -235,7 +235,7 @@ export function getBranchListAnnotations(branch: Branch) {
   const prStatus = prNumber === null ? 'unknown' : getPrStatus(prNumber);
   const prStatusString = prStatus !== 'unknown' ? `${prStatus}` : '';
   const orphanedString = branch.orphaned ? 'orphaned' : '';
-  const staleString = branch.stale ? 'stale' : '';
+  const staleString = branch.stale ? 'stale-reference' : '';
   const joinedAnnotations = [prStatusString, orphanedString, staleString].filter(Boolean).join(' ').trim();
   return {
     prNumber,
