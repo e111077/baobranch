@@ -1,7 +1,8 @@
 // File: tables.ts
 // Purpose: Generates markdown tables showing Git branch and PR relationships
 
-import { type Branch, type Command, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber, getPrStatus } from "../utils.js";
+import type { CommandModule } from "yargs";
+import { type Branch, createPrLink, execCommand, findChildren, getParentBranch, getPrNumber } from "../../utils.js";
 
 /**
  * Builds a complete branch hierarchy starting from a given branch by recursively finding child branches
@@ -129,8 +130,8 @@ function generateTables(): void {
 }
 
 // Export the command configuration
-export const tables: Command = {
-  command: 'tables',
-  description: 'Generate markdown tables showing PR relationships',
-  impl: generateTables
-};
+export const listTables = {
+  command: ['tables', 'ta'],
+  describe: 'Generate markdown tables showing PR relationships',
+  handler: generateTables
+} satisfies CommandModule<{}, {}>;

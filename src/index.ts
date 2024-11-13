@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import yargs from 'yargs';
-import { tables } from './commands/tables.js';
 import { list } from './commands/list/index.js';
 import { next } from './commands/next.js';
 import { prev } from './commands/prev.js';
@@ -10,12 +9,10 @@ import { rebase } from './commands/rebase/index.js';
 import { pull } from './commands/pull.js';
 import { amend } from './commands/amend.js';
 import { unamend } from './commands/unamend.js';
-import { tree } from './commands/tree.js';
 
 const hideBin = (argv: string[]): string[] => argv.slice(2);
 
 yargs(hideBin(process.argv))
-  .command(tables.command, tables.description, {}, tables.impl)
   .command(list)
   .command(next.command, next.description, {}, next.impl)
   .command(prev.command, prev.description, {}, prev.impl)
@@ -23,7 +20,6 @@ yargs(hideBin(process.argv))
   .command(unamend)
   .command(sync)
   .command(rebase)
-  .command(tree)
   .command(pull.command, pull.description, {}, pull.impl)
   .completion('completion', 'Generate shell completion script')
   .demandCommand(1, 'You need to specify a command')
