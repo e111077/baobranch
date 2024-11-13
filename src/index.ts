@@ -4,7 +4,7 @@ import yargs from 'yargs';
 import { list } from './commands/list/index.js';
 import { next } from './commands/next.js';
 import { prev } from './commands/prev.js';
-import { sync } from './commands/sync.js';
+import { evolve } from './commands/evolve/index.js';
 import { rebase } from './commands/rebase/index.js';
 import { pull } from './commands/pull.js';
 import { amend } from './commands/amend.js';
@@ -19,7 +19,7 @@ yargs(hideBin(process.argv))
   .command(prev.command, prev.description, {}, prev.impl)
   .command(amend)
   .command(unamend)
-  .command(sync)
+  .command(evolve)
   .command(rebase)
   .command(commit)
   .command(pull.command, pull.description, {}, pull.impl)
