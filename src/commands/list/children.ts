@@ -22,7 +22,7 @@ function impl(argv: ArgumentsCamelCase<FormatOptions>) {
       default:
         return notes.prNumber ?
           `${child.branchName}#${notes.prNumber}${notes.annotations}` :
-          child.branchName;
+          `${child.branchName}${notes.annotations}`;
     }
   });
 

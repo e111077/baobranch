@@ -1,6 +1,7 @@
 import type { Argv, CommandModule } from "yargs";
 import { execCommand } from '../utils.js';
 import inquirer from 'inquirer';
+import { markStale } from "../tags/stale.js";
 
 interface AmendOptions {
   filename?: string;
@@ -79,9 +80,14 @@ async function amendImpl({
       execCommand('git add -A');
     }
 
+    const currentCommit = execCommand('git rev-parse HEAD');
+    const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
+
     // Amend the commit without changing the message
     execCommand('git commit --amend --no-edit', true);
     console.log('Successfully amended changes to previous commit');
+    markStale(currentCommit, currentBranch, true);
+
   } catch (error) {
     if (error instanceof Error) {
       console.error('Error amending commit:', error.message);

@@ -1,39 +1,33 @@
-import type { CommandModule } from "yargs";
-import { loadState } from "../branch-state/state.js";
-import { execCommand, findChildren, getParentBranch } from "../utils.js";
-import inquirer from 'inquirer';
+import type { Argv, CommandModule } from "yargs";
+import { execCommand, getParentBranch } from "../utils.js";
+import {rebaseImpl} from './rebase/index.js';
 
 /**
  * Rebases the current branch onto its parent branch after user confirmation
  */
-async function impl(): Promise<void> {
-  const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const parent = getParentBranch(currentBranch);
-
-  const { confirm } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'confirm',
-    message: `attempt rebase on ${parent.branchName}?`,
-    default: false
-  }]);
-
-  if (confirm) {
-    console.log(`Rebasing onto ${parent.branchName}...`);
-    try {
-      execCommand(`git rebase --onto ${parent.branchName} $(git rev-parse ${currentBranch}^) ${currentBranch}`, true);
-    } catch (error) {
-      console.error((error as Error).message);
-      // Only exit with error if the rebase actually failed
-      process.exit(1);
-    }
-  } else {
-    console.log('Rebase cancelled');
-    process.exit(0);
-  }
-}
-
 export const sync = {
   command: 'sync',
   describe: 'Rebase the current branch onto its parent branch',
-  handler: impl
-} satisfies CommandModule<{}, {}>;
+  builder: (yargs: Argv) =>
+    yargs
+      .positional('branch', {
+        describe: 'The branch to rebase onto',
+        type: 'string',
+        demandOption: true
+      })
+      .option('continue', {
+        describe: 'Continue the rebase after resolving conflicts',
+        type: 'boolean'
+      })
+      .option('abort', {
+        describe: 'Abort the rebase operation',
+        type: 'boolean'
+      }),
+  handler: (options) => {
+    const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
+    const parent = getParentBranch(currentBranch);
+    const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
+
+    rebaseImpl(currentBranch, parent.branchName, flag);
+  }
+} satisfies CommandModule<{}, { branch: string, continue?: boolean, abort?: boolean }>;

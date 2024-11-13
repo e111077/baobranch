@@ -1,8 +1,13 @@
-import { execSync, type StdioOptions } from 'child_process';
+// Core Node.js imports for executing shell commands and handling paths
+import { exec, execSync, type StdioOptions } from 'child_process';
 import type { ArgumentsCamelCase, BuilderCallback, CommandModule } from 'yargs';
-import { loadState, saveState } from './branch-state/state.js';
 import { join } from 'path';
 
+/**
+ * Interface for command configuration used by the CLI
+ * @template T - Type for command arguments
+ * @template U - Type for command builder options
+ */
 export interface Command<T = any, U = {}> {
   command: string | string[];
   description: string;
@@ -10,17 +15,27 @@ export interface Command<T = any, U = {}> {
   builder?: CommandModule<U, T>['builder'] | BuilderCallback<U, T>;
 }
 
+/**
+ * Represents a Git branch and its relationships
+ * @property branchName - Name of the branch
+ * @property parent - Reference to parent branch or null if root
+ * @property children - Array of child branches
+ * @property orphaned - Whether the branch is orphaned (parent no longer exists)
+ * @property stale - Whether the branch is stale (outdated)
+ */
 export interface Branch {
   branchName: string;
   parent: Branch | null;
   children: Branch[];
   orphaned: boolean;
+  stale: boolean;
 }
 
+// Pull Request status types
 export type PRStatus = 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT' | 'unknown';
 
 /**
- * Type guard to check if an error is an ExecError
+ * Interface for shell command execution errors
  */
 interface ExecError extends Error {
   status: number;
@@ -31,7 +46,6 @@ interface ExecError extends Error {
  * @param command - The shell command to execute
  * @param throwOnError - Whether to throw an error if the command fails
  * @returns The command output as a string
- * @throws If throwOnError is true and the command fails with a non-zero exit code
  */
 export function execCommand(command: string, throwOnError: boolean = false): string {
   try {
@@ -48,14 +62,15 @@ export function execCommand(command: string, throwOnError: boolean = false): str
   }
 }
 
+/**
+ * Type guard to check if an error is an ExecError
+ */
 function isExecError(error: unknown): error is ExecError {
   return error instanceof Error && 'status' in error;
 }
 
 /**
- * Retrieves the PR number for a given branch
- * @param branch - The name of the branch
- * @returns The PR number as a string, or empty string if no PR exists
+ * Gets the PR number associated with a branch using GitHub CLI
  */
 export function getPrNumber(branch: string): number | null {
   const prNum = execCommand(`gh pr list --head "${branch}" --state all --json number --jq '.[0].number'`);
@@ -63,15 +78,15 @@ export function getPrNumber(branch: string): number | null {
 }
 
 /**
- * Retrieves the status of a given PR
- *
- * @param prNum The PR number to get the status of
- * @returns The status of the PR
+ * Gets the current status of a PR using GitHub CLI
  */
 export function getPrStatus(prNum: number): PRStatus {
   return execCommand(`gh pr view ${prNum} --json state --jq '.state'`) as PRStatus;
 }
 
+/**
+ * Formats the output of git branch --contains into a Set of branch names
+ */
 function formatBranchContains(containsOutput: string, branchName: string) {
   return new Set(containsOutput.split('\n')
     .map((branch) => branch.replace('*', '').trim())
@@ -79,186 +94,149 @@ function formatBranchContains(containsOutput: string, branchName: string) {
 }
 
 /**
- * Gets the parent branch information for a given branch
- * @param branchName - The name of the branch to find the parent for
- * @returns A Branch object representing the parent branch
+ * Determines the parent branch of a given branch
+ * Handles both regular parents and stale parents (tagged with stale-parent)
  */
 export function getParentBranch(branchName: string): Branch {
-  const children = formatBranchContains(
-    execCommand(`git branch --contains $(git rev-parse ${branchName})`),
-    branchName
-  );
-  const possibleParents = formatBranchContains(
-    execCommand(`git branch --contains $(git rev-parse ${branchName}^)`),
-    branchName
-  );
+  const parentCommit = execCommand(`git rev-parse ${branchName}^`);
+  const parentBranchName = execCommand(`git branch --points-at ${parentCommit}`).trim();
 
-  children.forEach(child => {
-    possibleParents.delete(child);
-  });
-
-  possibleParents.forEach(possibleParent => {
-    const parentNotInBranch = execCommand(`git branch --no-contains $(git rev-parse ${possibleParent})`);
-    if (parentNotInBranch.includes(branchName)) {
-      possibleParents.delete(possibleParent);
-    }
-  });
-
-  let parentBranchName = possibleParents.values().next().value;
-
-  if (!parentBranchName || parentBranchName === 'HEAD') {
-    // Check if 'main' branch exists
-    const mainExists = execCommand('git rev-parse --verify main 2>/dev/null') !== '';
-    parentBranchName = mainExists ? 'main' : 'master';
-  }
-
-  const state = loadState();
-  const stateParent = state.branches[branchName]?.parent;
-
-  if (
-    parentBranchName !== 'main' &&
-    parentBranchName !== 'master' &&
-    state.branches[branchName]?.orphaned &&
-    stateParent &&
-    stateParent !== 'main' &&
-    stateParent !== 'master'
-  ) {
+  if (parentBranchName) {
     return {
-      branchName: stateParent,
+      branchName: parentBranchName,
       parent: null,
       children: [],
-      orphaned: state.branches[stateParent]?.orphaned
-    }
+      orphaned: false,
+      stale: false,
+    };
   }
 
+  // Check for stale parent tags
+  const staleTag = execCommand(`git tag --points-at ${parentCommit} | grep -E '^stale-parent--figbranch--.+$'`);
+  const staleParentBranch = staleTag.split('--figbranch--')[1];
+
   return {
-    branchName: parentBranchName,
+    branchName: staleParentBranch,
     parent: null,
     children: [],
-    orphaned: false
+    orphaned: false,
+    stale: true,
   };
 }
 
 /**
  * Finds all child branches of a given parent branch
- * @param parentBranchName - The name of the parent branch
- * @returns An array of Branch objects representing the child branches
+ * Handles both current children and orphaned children (via stale tags)
  */
 export function findChildren(parentBranchName: string): Branch[] {
-  const state = loadState();
-  const stateChildren = state.branches[parentBranchName]?.children || [];
-  stateChildren.forEach(child => {
-    state.branches[child].orphaned = true;
-  });
+  // Find current direct children
   const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
-  const currentChildren = formatBranchContains(
+  const possibleCurrentChildren = formatBranchContains(
     execCommand(`git branch --contains ${parentCommit}`),
     parentBranchName
   );
 
-  currentChildren.forEach(child => {
-    const acutalParent = getParentBranch(child).branchName;
-    if (acutalParent !== parentBranchName) {
-      currentChildren.delete(child);
-      return;
+  const currentChildren = new Set<string>();
+  possibleCurrentChildren.forEach(child => {
+    const actualParentCommit = execCommand(`git rev-parse ${child}^`);
+    if (parentCommit === actualParentCommit) {
+      currentChildren.add(child);
     }
-
-    if (state.branches[child]) {
-      state.branches[child].orphaned = false;
-      return;
-    }
-
-    state.branches[child] = {
-      parent: parentBranchName,
-      children: [],
-      orphaned: false,
-      lastKnownParentCommit: parentCommit
-    };
   });
 
-  const allChildren = Array.from(new Set([...stateChildren, ...currentChildren]));
+  // Find orphaned children through stale tags
+  const staleTags = execCommand(`git tag | grep -E '^stale-parent--figbranch--${parentBranchName}--figbranch--[0-9]+$'`).split('\n');
+  const orphanedChildren = new Set<string>();
 
-  // Update parent's children in state
-  state.branches[parentBranchName] = {
-    ...state.branches[parentBranchName] || {},
-    children: allChildren
-  };
+  staleTags.forEach(tag => {
+    const tagCommit = execCommand(`git rev-parse ${tag}`);
+    const children = formatBranchContains(
+      execCommand(`git branch --contains $(git rev-parse ${tag})`),
+      parentBranchName
+    );
+    children.forEach(child => {
+      const parentCommit = execCommand(`git rev-parse ${child}^`);
+      if (parentCommit === tagCommit) {
+        orphanedChildren.add(child);
+      }
+    });
+  });
 
-  saveState(state);
+  // Build branch objects for both current and orphaned children
+  const children: Branch[] = [];
   const parent: Branch = {
     branchName: parentBranchName,
     parent: null,
-    children: [],
-    orphaned: state.branches[parentBranchName]?.orphaned || false
+    children,
+    orphaned: false,
+    stale: false,
+  };
+
+  const staleParent: Branch = {
+    branchName: parentBranchName,
+    parent: null,
+    children,
+    orphaned: false,
+    stale: true,
   }
 
-  return allChildren.map(childBranch => {
-    const prNumber = getPrNumber(childBranch);
-    const child = {
-      branchName: childBranch,
-      prNumber,
-      prStatus: prNumber === null ? 'unknown' : getPrStatus(prNumber),
+  // Add current children
+  currentChildren.forEach(child => {
+    children.push({
+      branchName: child,
       parent: parent,
       children: [],
-      orphaned: state.branches[childBranch]?.orphaned || false,
-    };
-
-    parent.children.push(child);
-
-    return child;
+      orphaned: false,
+      stale: false,
+    });
   });
+
+  // Add orphaned children
+  orphanedChildren.forEach(child => {
+    children.push({
+      branchName: child,
+      parent: staleParent,
+      children: [],
+      orphaned: true,
+      stale: false,
+    });
+  });
+
+  return children;
 }
 
 /**
- * Gets the domain of the GitHub repository
- *
- * @returns The domain of the GitHub repository
+ * Gets the GitHub repository URL from git remote
+ * Handles both HTTPS and SSH remote URLs
  */
 function getGithubUrl(): string {
   const remoteUrl = execCommand('git remote get-url origin')
-    // remove .git from the end of the URL
     .replace(/.git$/, '');
   if (remoteUrl.startsWith('https://')) {
-    // For HTTPS remotes: https://github.com/org/repo
     return remoteUrl;
   } else {
-    // For SSH remotes: git@github.com:org/repo
     const [domain, orgAndRepo] = remoteUrl.split('@')[1].split(':');
-
     return `https://${domain}/${orgAndRepo}`;
   }
 }
 
 /**
  * Creates a markdown link to a PR
- * @param branch - The name of the branch
- * @param prNum - The PR number
- * @returns A markdown formatted link to the PR
  */
 export function createPrLink(branch: string, prNum: number): string {
   return prNum ? `[#${prNum}](${getGithubUrl()}/pull/${prNum})` : branch;
 }
 
-const GIT_ROOT = execCommand('git rev-parse --git-dir');
-
 /**
- * The path to the user's .git/env file
- */
-export const USER_ENV_LOCATION = join(GIT_ROOT, 'figbranch-user-env');
-
-/**
- * Determines the state of a branch and returns a string representing its state
- * as formatted annotations
- *
- * @param branch The branch from which to get annotations
- * @returns A string containing annotations for the branch
+ * Gets branch annotations including PR status, orphaned state, and stale state
  */
 export function getBranchListAnnotations(branch: Branch) {
   const prNumber = getPrNumber(branch.branchName);
   const prStatus = prNumber === null ? 'unknown' : getPrStatus(prNumber);
   const prStatusString = prStatus !== 'unknown' ? `${prStatus}` : '';
-  const orphanedString = branch.orphaned ? 'orphaned?' : '';
-  const joinedAnnotations = [prStatusString, orphanedString].filter(Boolean).join(' ').trim();
+  const orphanedString = branch.orphaned ? 'orphaned' : '';
+  const staleString = branch.stale ? 'stale' : '';
+  const joinedAnnotations = [prStatusString, orphanedString, staleString].filter(Boolean).join(' ').trim();
   return {
     prNumber,
     annotations: joinedAnnotations ? ` (${joinedAnnotations})` : '',
