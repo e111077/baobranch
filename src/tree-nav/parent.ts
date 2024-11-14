@@ -5,8 +5,8 @@ import { execCommand, type Branch } from "../utils.js";
  * Determines the parent branch of a given branch
  * Handles both regular parents and stale parents (tagged with stale-parent)
  */
-export function getParentBranch(branchName: string): Branch {
-  const parentCommit = execCommand(`git rev-parse ${branchName}^`);
+export function getParentBranch(branchNameOrCommit: string): Branch {
+  const parentCommit = execCommand(`git rev-parse ${branchNameOrCommit}^`);
   let parentBranchName = execCommand(`git branch --points-at ${parentCommit}`).trim();
 
   if (parentBranchName) {
@@ -29,7 +29,7 @@ export function getParentBranch(branchName: string): Branch {
   parentBranchName = staleParentBranch ?? (mergeBaseParent ? mainOrMaster : '');
 
   if (!parentBranchName) {
-    parentBranchName = mainOrMaster;
+    return getParentBranch(parentCommit);
   }
 
   return {
