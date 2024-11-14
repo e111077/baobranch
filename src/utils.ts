@@ -1,6 +1,7 @@
 // Core Node.js imports for executing shell commands and handling paths
-import { execSync, type StdioOptions } from 'child_process';
+import { execSync, type ExecSyncOptions, type StdioOptions } from 'child_process';
 import type { ArgumentsCamelCase, BuilderCallback, CommandModule } from 'yargs';
+import { getPrNumber, getPrStatus } from './github-helpers/pr.js';
 
 /**
  * Interface for command configuration used by the CLI
@@ -30,9 +31,6 @@ export interface Branch {
   stale: boolean;
 }
 
-// Pull Request status types
-export type PRStatus = 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT' | 'unknown';
-
 /**
  * Interface for shell command execution errors
  */
@@ -46,13 +44,18 @@ interface ExecError extends Error {
  * @param throwOnError - Whether to throw an error if the command fails
  * @returns The command output as a string
  */
-export function execCommand(command: string, throwOnError: boolean = false): string {
+export function execCommand(
+  command: string,
+  throwOnError: boolean = false,
+  options: { stdio?: StdioOptions } = {}
+): string {
   try {
-    const options: { encoding: 'utf8', stdio: StdioOptions } = {
+    const defaultOptions = {
       encoding: 'utf8',
       stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe'
     };
-    return execSync(command, options).toString().trim();
+    const execOptions = { ...defaultOptions, ...options } as ExecSyncOptions;
+    return execSync(command, execOptions).toString().trim();
   } catch (error) {
     if (throwOnError && isExecError(error)) {
       throw error;
@@ -66,43 +69,6 @@ export function execCommand(command: string, throwOnError: boolean = false): str
  */
 function isExecError(error: unknown): error is ExecError {
   return error instanceof Error && 'status' in error;
-}
-
-/**
- * Gets the PR number associated with a branch using GitHub CLI
- */
-export function getPrNumber(branch: string): number | null {
-  const prNum = execCommand(`gh pr list --head "${branch}" --state all --json number --jq '.[0].number'`);
-  return prNum === '' ? null : Number(prNum);
-}
-
-/**
- * Gets the current status of a PR using GitHub CLI
- */
-export function getPrStatus(prNum: number): PRStatus {
-  return execCommand(`gh pr view ${prNum} --json state --jq '.state'`) as PRStatus;
-}
-
-/**
- * Gets the GitHub repository URL from git remote
- * Handles both HTTPS and SSH remote URLs
- */
-function getGithubUrl(): string {
-  const remoteUrl = execCommand('git remote get-url origin')
-    .replace(/.git$/, '');
-  if (remoteUrl.startsWith('https://')) {
-    return remoteUrl;
-  } else {
-    const [domain, orgAndRepo] = remoteUrl.split('@')[1].split(':');
-    return `https://${domain}/${orgAndRepo}`;
-  }
-}
-
-/**
- * Creates a markdown link to a PR
- */
-export function createPrLink(branch: string, prNum: number): string {
-  return prNum ? `[#${prNum}](${getGithubUrl()}/pull/${prNum})` : branch;
 }
 
 /**

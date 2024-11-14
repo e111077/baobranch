@@ -10,6 +10,7 @@ import { pull } from './commands/pull.js';
 import { amend } from './commands/amend.js';
 import { unamend } from './commands/unamend.js';
 import { commit } from './commands/commit.js';
+import { sync } from './commands/sync/index.js';
 
 const hideBin = (argv: string[]): string[] => argv.slice(2);
 
@@ -22,6 +23,7 @@ yargs(hideBin(process.argv))
   .command(evolve)
   .command(rebase)
   .command(commit)
+  .command(sync)
   .command(pull.command, pull.description, {}, pull.impl)
   .completion('completion', 'Generate shell completion script')
   .demandCommand(1, 'You need to specify a command')

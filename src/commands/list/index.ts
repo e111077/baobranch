@@ -6,7 +6,6 @@ import { execCommand, getBranchListAnnotations } from '../../utils.js';
 import { getParentBranch } from '../../tree-nav/parent.js';
 import { findChildren } from '../../tree-nav/children.js';
 import { listTree } from './tree.js';
-import { listTables } from './tables.js';
 
 function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const branchName = execCommand('git rev-parse --abbrev-ref HEAD');
@@ -43,7 +42,6 @@ export const list = {
         choices: ['pr', 'branch', 'both'] as const,
         default: 'both'
       } as const)
-      .command(listTree)
-      .command(listTables),
+      .command(listTree),
   handler,
 } as const satisfies CommandModule<{}, FormatOptions>;
