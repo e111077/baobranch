@@ -1,3 +1,4 @@
+import { retagMergeBase } from "../tags/merge-base-master.js";
 import { execCommand, type Branch } from "../utils.js";
 
 /**
@@ -6,7 +7,7 @@ import { execCommand, type Branch } from "../utils.js";
  */
 export function getParentBranch(branchName: string): Branch {
   const parentCommit = execCommand(`git rev-parse ${branchName}^`);
-  const parentBranchName = execCommand(`git branch --points-at ${parentCommit}`).trim();
+  let parentBranchName = execCommand(`git branch --points-at ${parentCommit}`).trim();
 
   if (parentBranchName) {
     return {
@@ -18,12 +19,21 @@ export function getParentBranch(branchName: string): Branch {
     };
   }
 
+  retagMergeBase();
+
   // Check for stale parent tags
   const staleTag = execCommand(`git tag --points-at ${parentCommit} | grep -E '^stale-parent--figbranch--.+$'`);
   const staleParentBranch = staleTag.split('--figbranch--')[1];
+  const mergeBaseParent = execCommand(`git tag --points-at ${parentCommit} | grep -E '^merge-base-master-.+$'`);
+  const mainOrMaster = execCommand('git branch --list main') ? 'main' : 'master';
+  parentBranchName = staleParentBranch ?? (mergeBaseParent ? mainOrMaster : '');
+
+  if (!parentBranchName) {
+    parentBranchName = mainOrMaster;
+  }
 
   return {
-    branchName: staleParentBranch,
+    branchName: parentBranchName,
     parent: null,
     children: [],
     orphaned: false,

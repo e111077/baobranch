@@ -37,7 +37,7 @@ fi`);
 
 // Export the command configuration
 export const listTree = {
-  command: ['tree', 'tr'],
+  command: ['tree', 't'],
   describe: 'Display a visual tree of all branches',
   handler
 } satisfies CommandModule<{}, {}>;
