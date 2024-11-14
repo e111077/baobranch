@@ -15,6 +15,7 @@ export function retagMergeBase() {
 git tag | grep '^merge-base-master-[0-9]\+$' | xargs -r git tag -d
 
 # Find merge-bases and tag them with incrementing numbers
+MERGE_BASES=""
 MERGE_BASES=$(git branch --format='%(refname:short)' | while read branch; do
     if [ "$branch" != "${masterOrMainBranch}" ]; then
         git merge-base ${masterOrMainBranch} $branch
@@ -27,9 +28,12 @@ done | sort -u | while read commit; do
 done)
 
 counter=1
-echo "$MERGE_BASES" | while read commit; do
-    git tag -f merge-base-master-$counter $commit
-    counter=$((counter + 1))
-done
+if [ -n "$MERGE_BASES" ]; then
+    counter=1
+    echo "$MERGE_BASES" | while read commit; do
+        git tag -f merge-base-master-$counter $commit
+        counter=$((counter + 1))
+    done
+fi
   `);
 }

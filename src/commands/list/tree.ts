@@ -3,6 +3,7 @@
 import type { CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { cleanupStaleParentTags } from '../../tags/stale.js'
+import { retagMergeBase } from "../../tags/merge-base-master.js";
 
 /**
  * Prints a visual tree representation of the Git branch structure with colors
@@ -11,7 +12,7 @@ function handler(): void {
   try {
     // Force Git to use colors even when output is not a terminal
     process.env.FORCE_COLOR = '1';
-
+    retagMergeBase();
     cleanupStaleParentTags();
     const masterOrMainBranch = execCommand('git branch --list main') ? 'main' : 'master';
     // Execute the tree command with color preservation
