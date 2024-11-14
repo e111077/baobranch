@@ -35,5 +35,5 @@ export function evolveSelfImpl(options: ArgumentsCamelCase<EvolveOptions>) {
     const parent = getParentBranch(currentBranch);
     const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
 
-    rebaseImpl(currentBranch, parent.branchName, flag);
+    rebaseImpl({ from: currentBranch, to: parent.branchName, flag });
 }

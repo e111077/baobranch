@@ -4,15 +4,22 @@ import { findChildren } from "../../tree-nav/children.js";
 import inquirer from 'inquirer';
 import { cleanupStaleParentTags, markStale } from '../../tags/stale.js';
 
-export async function rebaseImpl(from: string, to: string | undefined, flag: 'continue' | 'abort' | null) {
-  const fromCommit = execCommand(`git rev-parse ${from}`);
-
+export async function rebaseImpl(
+    { from, to, flag, silent = false }:
+    {
+      from: string;
+      to: string | undefined;
+      flag: 'continue' | 'abort' | null;
+      silent?: boolean;
+    }) {
   // Handle abort case
   if (flag === 'abort') {
     execCommand('git rebase --abort', true);
     cleanupStaleParentTags();
     return;
   }
+
+  const fromCommit = execCommand(`git rev-parse ${from}`);
 
   // Exit if no target branch and not continuing
   if (!to && flag !== 'continue') {
@@ -26,36 +33,42 @@ export async function rebaseImpl(from: string, to: string | undefined, flag: 'co
     return;
   }
 
-  // Get confirmation for new rebase
-  const { confirm } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'confirm',
-    message: `Attempt to rebase single branch-commit (${from}) onto branch ${to}?`,
-    default: false
-  }]);
+  if (!silent) {
+    // Get confirmation for new rebase
+    const { confirm } = await inquirer.prompt([{
+      type: 'confirm',
+      name: 'confirm',
+      message: `Attempt to rebase single branch-commit (${from}) onto branch ${to}?`,
+      default: false
+    }]);
 
-  if (!confirm) {
-    console.log('Rebase cancelled');
-    process.exit(0);
+    if (!confirm) {
+      console.log('Rebase cancelled');
+      process.exit(0);
+    }
   }
 
   // Perform the rebase
-  console.log(`Rebasing onto ${to}...`);
+  console.log(`Rebasing ${from} onto ${to}...`);
+  const children = findChildren(from);
+
   try {
     execCommand(`git rebase --onto ${to} ${fromCommit}^ ${from}`, true);
 
     // Handle successful rebase case
     const newCommit = execCommand(`git rev-parse ${from}`);
+
     if (fromCommit !== newCommit) {
-      const children = findChildren(from);
       const hasNonOrphanedChildren = children.some(child => !child.orphaned);
       markStale(fromCommit, from, hasNonOrphanedChildren);
     }
+
+    console.log('Rebase complete.');
   } catch (error: any) {
     // Mark as stale before showing error
-    const children = findChildren(from);
     const hasNonOrphanedChildren = children.some(child => !child.orphaned);
     markStale(fromCommit, from, hasNonOrphanedChildren);
+    console.log('Rebase incomplete:');
 
     // Show clean git error output
     if (error.stderr) {
@@ -64,8 +77,6 @@ export async function rebaseImpl(from: string, to: string | undefined, flag: 'co
       console.error(error.message);
     }
     process.exit(1);
-  } finally {
-
   }
 }
 
@@ -99,6 +110,6 @@ export const rebase = {
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
     const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
 
-    rebaseImpl(currentBranch, options.branch, flag);
+    rebaseImpl({ from: currentBranch, to: options.branch, flag });
   }
 } satisfies CommandModule<{}, { branch?: string, continue?: boolean, abort?: boolean }>;
