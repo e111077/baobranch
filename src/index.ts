@@ -2,6 +2,7 @@
 
 import yargs from 'yargs';
 import { list } from './commands/list/index.js';
+import { listTree } from './commands/list/tree.js';
 import { next } from './commands/next.js';
 import { prev } from './commands/prev.js';
 import { evolve } from './commands/evolve/index.js';
@@ -11,10 +12,18 @@ import { amend } from './commands/amend.js';
 import { unamend } from './commands/unamend.js';
 import { commit } from './commands/commit.js';
 import { sync } from './commands/sync/index.js';
+import { push } from './commands/push/index.js';
 
 const hideBin = (argv: string[]): string[] => argv.slice(2);
 
 yargs(hideBin(process.argv))
+  .command({
+    command: '*',
+    describe: 'Show branch tree (default)',
+    handler: () => {
+      listTree.handler();
+    }
+  })
   .command(list)
   .command(next.command, next.description, {}, next.impl)
   .command(prev.command, prev.description, {}, prev.impl)
@@ -24,9 +33,9 @@ yargs(hideBin(process.argv))
   .command(rebase)
   .command(commit)
   .command(sync)
+  .command(push)
   .command(pull.command, pull.description, {}, pull.impl)
   .completion('completion', 'Generate shell completion script')
-  .demandCommand(1, 'You need to specify a command')
   .strict()
   .help()
   .alias('h', 'help')
