@@ -1,6 +1,7 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand, getParentBranch } from "../utils.js";
-import {rebaseImpl} from './rebase/index.js';
+import { execCommand } from "../utils.js";
+import { getParentBranch } from "../tree-nav/parent.js";
+import { rebaseImpl } from './rebase/index.js';
 
 /**
  * Rebases the current branch onto its parent branch after user confirmation

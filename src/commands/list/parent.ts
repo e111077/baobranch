@@ -1,6 +1,7 @@
 import type { ArgumentsCamelCase, CommandModule } from "yargs";
 import type { FormatOptions } from "./options";
-import { execCommand, getBranchListAnnotations, getParentBranch } from "../../utils.js";
+import { execCommand, getBranchListAnnotations } from "../../utils.js";
+import { getParentBranch } from "../../tree-nav/parent.js";
 
 function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');

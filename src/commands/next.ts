@@ -1,5 +1,6 @@
 import inquirer from 'inquirer';
-import { type Command, execCommand, findChildren } from "../utils.js";
+import { type Command, execCommand } from "../utils.js";
+import { findChildren } from "../tree-nav/children.js";
 
 /**
  * Interactively checks out to a child branch

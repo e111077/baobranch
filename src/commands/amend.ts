@@ -19,7 +19,6 @@ async function amendImpl({
   filename
 }: AmendOptions) {
   try {
-    if (filename) {
       // Get status and find all matching files
       const status = execCommand('git status --porcelain');
       const files = status.split('\n')
@@ -32,6 +31,7 @@ async function amendImpl({
         })
         .filter((file): file is { status: string, path: string } => file !== null);
 
+    if (filename) {
       // Find matches based on left-to-right path matching
       const matchingFiles = files.filter(file => {
         if (filename.endsWith('/')) {
@@ -76,6 +76,23 @@ async function amendImpl({
       });
 
     } else {
+      if (files.length !== 1) {
+        console.log('Amending multiple files:');
+        files.forEach(file => console.log(`  ${file.path}`));
+
+        const { confirm } = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Amend all these files?',
+          default: false
+        }]);
+
+        if (!confirm) {
+          console.log('Aborting amend');
+          process.exit(0);
+        }
+      }
+
       // Add all changes if no specific file
       execCommand('git add -A');
     }

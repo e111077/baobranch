@@ -1,4 +1,5 @@
-import { type Command, execCommand, getParentBranch } from "../utils.js";
+import { type Command, execCommand } from "../utils.js";
+import { getParentBranch } from "../tree-nav/parent.js";
 
 function impl() {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');

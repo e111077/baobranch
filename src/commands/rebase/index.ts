@@ -1,5 +1,6 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand, findChildren } from "../../utils.js";
+import { execCommand } from "../../utils.js";
+import { findChildren } from "../../tree-nav/children.js";
 import inquirer from 'inquirer';
 import { cleanupStaleParentTags, markStale } from '../../tags/stale.js';
 
