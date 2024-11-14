@@ -25,7 +25,7 @@ function handler(argv: ArgumentsCamelCase<FormatOptions>) {
 }
 
 export const listParent = {
-  command: 'parent' as const,
+  command: ['parent', 'p'],
   describe: 'List parent branch',
   handler,
 } satisfies CommandModule<{}, FormatOptions>;

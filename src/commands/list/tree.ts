@@ -1,13 +1,13 @@
 // tree.ts
 
 import type { CommandModule } from "yargs";
-import { execCommand } from "../utils.js";
-import { cleanupStaleParentTags } from '../tags/stale.js'
+import { execCommand } from "../../utils.js";
+import { cleanupStaleParentTags } from '../../tags/stale.js'
 
 /**
  * Prints a visual tree representation of the Git branch structure with colors
  */
-function printBranchTree(): void {
+function handler(): void {
   try {
     // Force Git to use colors even when output is not a terminal
     process.env.FORCE_COLOR = '1';
@@ -35,8 +35,8 @@ fi`);
 }
 
 // Export the command configuration
-export const tree = {
-  command: 'tree',
+export const listTree = {
+  command: ['tree', 'tr'],
   describe: 'Display a visual tree of all branches',
-  handler: printBranchTree
+  handler
 } satisfies CommandModule<{}, {}>;

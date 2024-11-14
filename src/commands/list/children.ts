@@ -30,7 +30,7 @@ function handler(argv: ArgumentsCamelCase<FormatOptions>) {
 }
 
 export const listChildren = {
-  command: 'children' as const,
+  command: ['children', 'c'],
   describe: 'List child branches',
   handler,
 } satisfies CommandModule<{}, FormatOptions>;

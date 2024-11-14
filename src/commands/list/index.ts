@@ -3,6 +3,8 @@ import { listChildren } from './children.js';
 import type { FormatOptions } from "./options";
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { execCommand, findChildren, getBranchListAnnotations, getParentBranch, type Branch } from '../../utils.js';
+import { listTree } from './tree.js';
+import { listTables } from './tables.js';
 
 function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const branchName = execCommand('git rev-parse --abbrev-ref HEAD');
@@ -38,6 +40,8 @@ export const list = {
         describe: 'Output format',
         choices: ['pr', 'branch', 'both'] as const,
         default: 'both'
-      } as const),
+      } as const)
+      .command(listTree)
+      .command(listTables),
   handler,
 } as const satisfies CommandModule<{}, FormatOptions>;
