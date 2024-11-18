@@ -3,7 +3,7 @@
  * Synchronizes PR descriptions and base branches for a branch hierarchy
  */
 
-import type { ArgumentsCamelCase, CommandModule } from "yargs";
+import type { CommandModule } from "yargs";
 import { buildGraph } from "../../tree-nav/graph.js";
 import { getTableStr, upsertPrDescription } from '../../github-helpers/comment.js'
 import { getPrNumber, getPrStatus, updateBaseBranch } from '../../github-helpers/pr.js'

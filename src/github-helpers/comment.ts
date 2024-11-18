@@ -5,6 +5,7 @@
 
 import { execCommand } from '../utils.js';
 import { createPrLink } from './links.js';
+import fs from 'fs';
 
 /**
  * Interface representing a PR dependency (branch and its PR number)
@@ -55,12 +56,24 @@ ${body}
     description += bodyWithComment;
   }
 
-  // Update the PR description
-  execCommand(
-    `gh pr edit ${prNumber} --body '${description}'`,
-    true,
-    { stdio: ['pipe', 'pipe', 'pipe'] }
-  );
+
+  // Write the description to a temporary file
+  const tempFile = `/tmp/pr-${prNumber}-description.txt`;
+
+  try {
+    fs.writeFileSync(tempFile, description);
+
+    // Update the PR description using the file
+    execCommand(
+      `gh pr edit ${prNumber} --body-file ${tempFile}`,
+      true,
+      { stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+  } finally {
+    // Clean up the temporary file
+    fs.unlinkSync(tempFile);
+  }
+
 }
 
 /**

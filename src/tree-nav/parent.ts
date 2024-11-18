@@ -7,7 +7,8 @@ import { execCommand, type Branch } from "../utils.js";
  */
 export function getParentBranch(branchNameOrCommit: string): Branch {
   const parentCommit = execCommand(`git rev-parse ${branchNameOrCommit}^`);
-  let parentBranchName = execCommand(`git branch --points-at ${parentCommit}`).trim();
+  let parentBranchName = execCommand(`git branch --format="%(refname:short)" --points-at ${parentCommit}`)
+      .trim();
 
   if (parentBranchName) {
     return {
