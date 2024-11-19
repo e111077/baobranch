@@ -1,6 +1,6 @@
 {
   "name": "baobranch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -12,6 +12,10 @@
     "build": "tsc",
     "start": "node ./bin/index",
     "watch": "tsc --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/e111077/baobranch.git"
   },
   "author": "",
   "license": "MIT",
