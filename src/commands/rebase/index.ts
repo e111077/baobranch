@@ -81,7 +81,7 @@ export async function rebaseImpl(
 }
 
 /**
- * Rebase command module for figbranch.
+ * Rebase command module for baobranch.
  * Handles rebasing the current branch onto a target branch after user confirmation.
  * Updates state to mark child branches as orphaned since they'll need to be rebased too.
  *

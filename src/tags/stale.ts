@@ -1,17 +1,56 @@
 /**
  * @module stale
- * Handles the marking and cleanup of stale parent branches in Git
+ * @description Handles the marking and cleanup of stale parent branches in Git.
+ * When branches are rebased or moved, their original commits become "stale".
+ * This module helps track these stale commits to maintain branch relationship history.
  */
 
 import { execCommand } from "../utils.js";
 import { retagMergeBase } from "./merge-base-master.js";
 
 /**
+ * Creates a tag name for marking stale parent branches using a specific format
+ * @param branchName - Name of the branch being marked as stale
+ * @param tagNum - Numeric identifier for the stale tag
+ * @param escape - Whether to escape the brackets in the tag name
+ * @returns Formatted tag name in the format 'bbranch-stale-{{branchName}}-{{tagNum}}'
+ */
+export function makeStaleParentTag(branchName: string, tagNum: number|string) {
+  return `bbranch-stale-{{${branchName}}}-{{${tagNum}}}`;
+}
+
+/**
+ * Retrieves all stale parent tags for a given branch
+ * Uses grep to find tags matching the stale parent format
+ * @param branchName - Name of the branch to find stale tags for
+ * @returns Array of stale tag names for the branch
+ */
+export function getStaleParentTags(branchName: string) {
+  return execCommand(`git tag | grep -E '^${makeStaleParentTag(branchName, '[0-9]+')}$'`)
+    .split('\n')
+    .filter(tag => tag.length);
+}
+
+/**
+ * Extracts branch name and tag number from a stale parent tag
+ * @param tag - The stale parent tag to parse
+ * @returns Object containing the branch name and numeric tag identifier
+ * @example
+ * parseStaleParentTag('bbranch-stale-{{feature}}-{{1}}')
+ * // Returns { branchName: 'feature', tagNum: 1 }
+ */
+export function parseStaleParentTag(tag: string) {
+  const regex = new RegExp(makeStaleParentTag('(.+?)', '([0-9]+)'));
+  const [_, branchName, tagNum] = tag.match(regex) ?? [];
+  return { branchName, tagNum: parseInt(tagNum) };
+}
+
+/**
  * Marks a commit as stale and manages stale parent tags
  *
  * When a branch is rebased or moved, its original commit becomes "stale". This function
- * marks these commits with special tags to maintain branch relationship history, particularly
- * useful for tracking orphaned branches.
+ * tags these commits to maintain branch relationship history, particularly for tracking
+ * orphaned branches.
  *
  * @param commit - The SHA of the commit to mark as stale
  * @param branchName - The name of the branch being marked
@@ -22,19 +61,16 @@ import { retagMergeBase } from "./merge-base-master.js";
  * markStale("abc123", "feature-branch", true);
  */
 export function markStale(commit: string, branchName: string, hasDirectChildren: boolean) {
-  // If this commit has any direct children, then we want to mark it as stale so
-  // that those children can be marked as orphans. We don't want to tag it
-  // otherwise as that would have a hanging tag that offers nothing.
+  // Only tag commits that have direct children to avoid orphaned tags
   if (hasDirectChildren) {
-    // Get existing stale tags for this branch and find the highest number
-    const staleTagsSplit = execCommand(`git tag | grep -E '^stale-parent--figbranch--${branchName}--figbranch--[0-9]+$'`)
-        .split('\n')
-        .filter(tag => tag.length)
-        .map(tag => tag.split('--figbranch--')[2]);
-    const lastStaleTagNum = staleTagsSplit.length ? parseInt(staleTagsSplit[staleTagsSplit.length - 1]) : -1;
+    // Get existing stale tags and find highest number
+    const staleTagNums = getStaleParentTags(branchName)
+      .map(tag => parseStaleParentTag(tag).tagNum);
 
-    // Tag the current commit with a stale-parent tag
-    execCommand(`git tag stale-parent--figbranch--${branchName}--figbranch--${lastStaleTagNum + 1} ${commit}`);
+    const lastStaleTagNum = Math.max(...staleTagNums, -1);
+
+    // Create new stale parent tag with incremented number
+    execCommand(`git tag ${makeStaleParentTag(branchName, lastStaleTagNum + 1)} ${commit}`);
   }
 
   cleanupStaleParentTags();
@@ -48,24 +84,23 @@ export function markStale(commit: string, branchName: string, hasDirectChildren:
  * - The tagged commit no longer has any child branches
  * - The branch relationships it was tracking no longer exist
  *
- * This helps keep the repository clean of unused tags while maintaining
- * only the necessary relationship tracking information.
- *
  * @example
  * // Clean up any unnecessary stale parent tags
  * cleanupStaleParentTags();
  */
 export function cleanupStaleParentTags() {
-  // Get all stale-parent tags
-  const staleTags = execCommand(`git tag | grep -E '^stale-parent--figbranch--.+$'`).split('\n');
+  // Get all stale parent tags using a wildcard pattern
+  const staleTags = getStaleParentTags('.+?');
+
   staleTags.forEach(tag => {
-    // Check if there are any children of this tag
+    // Check if tag still has any child branches
     const children = execCommand(`git branch --contains ${tag}`);
+
     if (children) {
       return;
     }
 
-    // If no children, delete the tag
+    // Remove tag if it has no children
     execCommand(`git tag -d ${tag}`);
   });
 }

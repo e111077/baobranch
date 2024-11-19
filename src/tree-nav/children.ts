@@ -1,3 +1,4 @@
+import { makeStaleParentTag } from "../tags/stale.js";
 import { execCommand, type Branch } from "../utils.js";
 
 /**
@@ -30,7 +31,7 @@ export function findChildren(parentBranchName: string): Branch[] {
   });
 
   // Find orphaned children through stale tags
-  const staleTags = execCommand(`git tag | grep -E '^stale-parent--figbranch--${parentBranchName}--figbranch--[0-9]+$'`).split('\n');
+  const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n');
   const orphanedChildren = new Set<string>();
 
   staleTags.forEach(tag => {

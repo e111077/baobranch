@@ -1,5 +1,9 @@
 import { execCommand } from "../utils.js";
 
+export function makeMergeBaseTag(count: number|string) {
+  return `bbranch-mb-${count}`;
+}
+
 /**
  * Updates merge-base tags for tracking branch relationships
  * This helps maintain branch hierarchy information even when branches are deleted
@@ -12,7 +16,7 @@ export function retagMergeBase() {
   // 2. Find merge-bases with master / main and tag them with incrementing numbers
   execCommand(`
 # Remove all existing numbered merge-base tags
-git tag | grep '^merge-base-master-[0-9]\+$' | xargs -r git tag -d
+git tag | grep '^${makeMergeBaseTag('[0-9]')}\+$' | xargs -r git tag -d
 
 # Find merge-bases and tag them with incrementing numbers
 MERGE_BASES=""
@@ -31,7 +35,7 @@ counter=1
 if [ -n "$MERGE_BASES" ]; then
     counter=1
     echo "$MERGE_BASES" | while read commit; do
-        git tag -f merge-base-master-$counter $commit
+        git tag -f ${makeMergeBaseTag('$counter')} $commit
         counter=$((counter + 1))
     done
 fi

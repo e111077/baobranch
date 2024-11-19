@@ -2,8 +2,8 @@
 
 import type { CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
-import { cleanupStaleParentTags } from '../../tags/stale.js'
-import { retagMergeBase } from "../../tags/merge-base-master.js";
+import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
+import { makeMergeBaseTag, retagMergeBase } from "../../tags/merge-base-master.js";
 
 /**
  * Prints a visual tree representation of the Git branch structure with colors
@@ -26,9 +26,11 @@ else
     git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches \${MERGE_BASE}^@
 fi`);
 
+    const staleParentRegex = new RegExp(`tag:.+${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
+    const mergeBaseRegex = new RegExp(`tag:.+${makeMergeBaseTag('[0-9]+')}`, 'g');
     const tree = rawTree
-      .replaceAll(/tag:.+stale-parent--figbranch--(.+?)--figbranch--[0-9]+/g, '$1 - STALE REF')
-      .replaceAll(/tag:.+merge-base-master-[0-9]+/g, `${masterOrMainBranch} - OLD TIP`);
+      .replaceAll(staleParentRegex, '$1 - STALE REF')
+      .replaceAll(mergeBaseRegex, `${masterOrMainBranch} - OLD TIP`);
     console.log(tree);
   } catch (error) {
     console.error('Error generating branch tree:', error);

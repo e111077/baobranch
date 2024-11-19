@@ -3,7 +3,7 @@
     "target": "ES2023",
     "moduleResolution": "node",
     "module": "ESNext",
-    "outDir": "./lib",
+    "outDir": "./bin",
     "strict": true,
     "types": ["node"],
     "verbatimModuleSyntax": true,

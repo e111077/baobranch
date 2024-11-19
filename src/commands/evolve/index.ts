@@ -46,7 +46,7 @@ function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>): void {
   if (status && options.continue) {
     console.log('Resuming evolve operation...');
     const tagToResume = generateEvolveTag(status.step, status.scope);
-    const branchToResume = execCommand(`git branch --format="%(refname:short)"' --points-at ${tagToResume}`).trim();
+    const branchToResume = execCommand(`git branch --format="%(refname:short)" --points-at ${tagToResume}`).trim();
     const rebaseInProgress = execCommand(
       `git status | grep -E '(all conflicts fixed: run "git rebase --continue")|(fix conflicts and then run "git rebase --continue")'`
     );
@@ -91,7 +91,9 @@ function evolveChain({
   flag: 'continue' | null;
   step?: number;
 }): void {
-  const parent = getParentBranch(currentBranch);
+  const parent = flag === 'continue' ?
+    {branchName: ''} :
+    getParentBranch(currentBranch);
 
   // Rebase current branch onto parent
   rebaseImpl({
@@ -107,7 +109,7 @@ function evolveChain({
   step++;
 
   // Find next branch to evolve
-  const nextBranch = execCommand(`git branch  --format="%(refname:short)"' --points-at ${generateEvolveTag(step, scope)}`).trim();
+  const nextBranch = execCommand(`git branch --format="%(refname:short)" --points-at ${generateEvolveTag(step, scope)}`).trim();
 
   if (!nextBranch) {
     console.log('Evolve operation complete.');

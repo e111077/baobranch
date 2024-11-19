@@ -19,7 +19,7 @@ interface PrDep {
  * Updates or inserts a comment section in a PR description
  *
  * This function adds or updates a section in the PR description between
- * figbranch comment markers. The section typically contains a table showing
+ * baobranch comment markers. The section typically contains a table showing
  * branch relationships.
  *
  * @param prNumber - The PR number to update
@@ -37,19 +37,19 @@ export function upsertPrDescription(prNumber: number, body: string) {
   );
 
   // Create the comment block with the new content
-  const bodyWithComment = `<!-- figbranch-comment-start -->
+  const bodyWithComment = `<!-- bbranch-comment-start -->
 
 ${body}
 
-<!-- figbranch-comment-end -->`;
+<!-- bbranch-comment-end -->`;
 
-  // Check if a figbranch comment section already exists
-  const hasComment = description.match(/<!-- figbranch-comment-start -->[\s\S]*?<!-- figbranch-comment-end -->/);
+  // Check if a baobranch comment section already exists
+  const hasComment = description.match(/<!-- bbranch-comment-start -->[\s\S]*?<!-- bbranch-comment-end -->/);
 
   // Update or append the comment section
   if (hasComment) {
     description = description.replace(
-      /<!-- figbranch-comment-start -->[\s\S]*?<!-- figbranch-comment-end -->/,
+      /<!-- bbranch-comment-start -->[\s\S]*?<!-- bbranch-comment-end -->/,
       bodyWithComment
     );
   } else {

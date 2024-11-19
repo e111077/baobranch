@@ -19,7 +19,7 @@ import { execCommand } from "../utils.js";
  * @returns {EvolveStatus | null} The current evolve status or null if no evolve is in progress
  */
 export function getEvolveStatus(): { step: number, scope: 'self' | 'full' | 'directs' } | null {
-  const evolveTags = execCommand('git tag --list | grep "figbranch-evolve--"')
+  const evolveTags = execCommand(`git tag --list | grep -E "${generateEvolveTag('.+?', '.+?')}"`)
     .split('\n')
     .filter(Boolean);
 
@@ -28,9 +28,9 @@ export function getEvolveStatus(): { step: number, scope: 'self' | 'full' | 'dir
   }
 
   const evolveNums = evolveTags
-    .map(tag => parseInt(tag.split('--')[2]))
-    .sort();
-  const scope = evolveTags[0].split('--')[1] as 'self' | 'full' | 'directs';
+    .map(tag => parseEvolveTag(tag).step)
+    .sort((a, b) => a - b);
+  const scope = parseEvolveTag(evolveTags[0]).scope as 'self' | 'full' | 'directs';
 
   return { step: evolveNums[0], scope };
 }
@@ -78,17 +78,23 @@ export function tagEvolveBranches(branch: string, scope: 'full' | 'directs'): vo
  * Removes all evolve-related tags from the repository
  */
 export function clearAllEvolveTags(): void {
-  execCommand('git tag --list | grep "figbranch-evolve-" | xargs git tag -d');
+  execCommand(`git tag --list | grep -E '${generateEvolveTag('.+?', '.+?')}' | xargs git tag -d`);
 }
 
 /**
  * Generates an evolve tag name for a specific step and scope
  * @param {number} step - The evolution step number
- * @param {'self' | 'full' | 'directs'} scope - The scope of evolution
+ * @param {string} scope - The scope of evolution
  * @returns {string} The formatted tag name
  * @example
- * generateEvolveTag(0, 'self') // Returns "figbranch-evolve--self--0"
+ * generateEvolveTag(0, 'self') // Returns "bbranch-evolve-{{chain}}-{{0}}"
  */
-export function generateEvolveTag(step: number, scope: 'self' | 'full' | 'directs'): string {
-  return `figbranch-evolve--${scope}--${step}`;
+export function generateEvolveTag(step: number|string, scope: string): string {
+  return `bbranch-evolve-{{${scope}}}-{{${step}}}`;
+}
+
+export function parseEvolveTag(tag: string) {
+  const regex = new RegExp(generateEvolveTag('(.+?)', '(.+?)'));
+  const [_, scope, step] = tag.match(regex) ?? [];
+  return { scope, step: parseInt(step) };
 }

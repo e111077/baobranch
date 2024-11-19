@@ -1,12 +1,17 @@
 {
-  "name": "figbranch_bin",
-  "version": "1.0.0",
+  "name": "baobranch",
+  "version": "0.1.0",
   "description": "",
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "baobranch": "./bin/index.js",
+    "bb": "./bin/index.js"
+  },
   "scripts": {
     "build": "tsc",
-    "start": "node ./lib/index"
+    "start": "node ./bin/index",
+    "watch": "tsc --watch"
   },
   "author": "",
   "license": "MIT",
