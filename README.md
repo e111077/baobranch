@@ -98,10 +98,10 @@ Okay let's see this workflow again with Baobranch.
 
 ```
 * 90cb39a (D) d
-* 30ee5d7 (HEAD -> C) c
+* 30ee5d7 (C) c
 | * c05d40e (B) b
 |/
-* 26106c3 (A) a
+* 26106c3 (HEAD -> A) a
 * 0e59234 (main) tip
 ```
 
