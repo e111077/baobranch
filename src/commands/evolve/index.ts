@@ -42,6 +42,8 @@ function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>): void {
     return;
   }
 
+  const initialBranch = execCommand('git rev-parse --abbrev-ref HEAD');
+
   // Handle continue case
   if (status && options.continue) {
     console.log('Resuming evolve operation...');
@@ -58,18 +60,21 @@ function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>): void {
       flag,
       step: status.step
     });
+
+    execCommand(`git checkout ${initialBranch}`);
     return;
   }
 
   // Handle new evolution
-  const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  tagEvolveBranches(currentBranch, options.scope);
+  tagEvolveBranches(initialBranch, options.scope);
 
   evolveChain({
-    currentBranch,
+    currentBranch: initialBranch,
     scope: options.scope,
     flag: null
   });
+
+  execCommand(`git checkout ${initialBranch}`);
 }
 
 /**
