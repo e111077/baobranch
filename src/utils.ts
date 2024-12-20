@@ -1,5 +1,5 @@
 // Core Node.js imports for executing shell commands and handling paths
-import { execSync, type ExecSyncOptions, type StdioOptions } from 'child_process';
+import { execSync, exec, type ExecSyncOptions, type StdioOptions } from 'child_process';
 import type { ArgumentsCamelCase, BuilderCallback, CommandModule } from 'yargs';
 import { getPrNumber, getPrStatus } from './github-helpers/pr.js';
 
@@ -56,6 +56,27 @@ export function execCommand(
     };
     const execOptions = { ...defaultOptions, ...options } as ExecSyncOptions;
     return execSync(command, execOptions).toString().trim();
+  } catch (error) {
+    if (throwOnError && isExecError(error)) {
+      throw error;
+    }
+    return '';
+  }
+}
+
+export async function execCommandAsync(
+  command: string,
+  throwOnError: boolean = false,
+  options: { stdio?: StdioOptions } = {}
+): Promise<string> {
+  try {
+    const defaultOptions = {
+      encoding: 'utf8',
+      stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe'
+    };
+    const execOptions = { ...defaultOptions, ...options } as ExecSyncOptions;
+    const res = new Promise<string>((resolve, reject) => exec(command, execOptions, (err, stdout) => err ? reject(err) : resolve(stdout)));
+    return (await res).toString().trim();
   } catch (error) {
     if (throwOnError && isExecError(error)) {
       throw error;

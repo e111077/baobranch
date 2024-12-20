@@ -4,7 +4,7 @@
  * Uses force push to ensure branch state consistency.
  */
 
-import type { ArgumentsCamelCase, CommandModule } from "yargs";
+import type { CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 
 /**

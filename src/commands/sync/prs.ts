@@ -78,35 +78,44 @@ async function syncPrImpl() {
   }
 
   // Update PR descriptions and base branches
-  console.log('Updating PRs...');
+  console.log('Updating PRs...\n');
+
+  const promises: Promise<unknown>[] = [];
 
   for (const branch of prsToUpdate) {
-    const parentPrNumber = prToNumber.get(branch.parent!);
-    const tableStr = getTableStr({
-      branchName: branch.parent!.branchName,
-      prNumber: parentPrNumber
-    }, branch.children.map(child => ({
-      branchName: child.branchName,
-      prNumber: prToNumber.get(child)
-    })));
+    const updatePr = new Promise(async () => {
+      const parentPrNumber = prToNumber.get(branch.parent!);
+      const tableStr = getTableStr({
+        branchName: branch.parent!.branchName,
+        prNumber: parentPrNumber
+      }, branch.children.map(child => ({
+        branchName: child.branchName,
+        prNumber: prToNumber.get(child)
+      })));
 
-    const prNumber = prToNumber.get(branch)!;
+      const prNumber = prToNumber.get(branch)!;
 
-    console.log(`\nUpdating PR: ${branch.branchName}#${prNumber}...`);
+      console.log(`Updating PR: ${branch.branchName}#${prNumber}...`);
 
-    // Update PR description with relationship table
-    upsertPrDescription(prNumber, tableStr);
+      // Update PR description with relationship table
+      await upsertPrDescription(prNumber, tableStr);
 
-    // Update PR base branch
-    const { success } = updateBaseBranch(prNumber, branch.parent!.branchName);
+      // Update PR base branch
+      const { success } = await updateBaseBranch(prNumber, branch.parent!.branchName);
 
-    if (success) {
-      console.log(`PR ${prNumber} updated.`);
-      continue;
-    }
+      if (success) {
+        console.log(`PR ${prNumber} updated.`);
+        return;
+      }
 
-    console.log(`Base branch (${branch.parent!.branchName}) not found. PR ${prNumber} base branch set to main.`);
+      console.log(`Base branch (${branch.parent!.branchName}) not found. PR ${prNumber} base branch set to main.`);
+      return;
+    });
+
+    promises.push(updatePr);
   }
+
+  await Promise.all(promises);
 }
 
 /**

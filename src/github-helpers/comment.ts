@@ -3,7 +3,7 @@
  * Manages PR description updates with branch relationship tables
  */
 
-import { execCommand } from '../utils.js';
+import { execCommandAsync } from '../utils.js';
 import { createPrLink } from './links.js';
 import fs from 'fs';
 
@@ -28,9 +28,9 @@ interface PrDep {
  * @example
  * upsertPrDescription(123, "| Parent | Children |\n| -- | -- |\n| main | feature-1 |");
  */
-export function upsertPrDescription(prNumber: number, body: string) {
+export async function upsertPrDescription(prNumber: number, body: string) {
   // Get current PR description
-  let description = execCommand(
+  let description = await execCommandAsync(
     `gh pr view ${prNumber} --json body --jq '.body'`,
     true,
     { stdio: ['pipe', 'pipe', 'pipe'] }
@@ -64,7 +64,7 @@ ${body}
     fs.writeFileSync(tempFile, description);
 
     // Update the PR description using the file
-    execCommand(
+    await execCommandAsync(
       `gh pr edit ${prNumber} --body-file ${tempFile}`,
       true,
       { stdio: ['pipe', 'pipe', 'pipe'] }
@@ -73,7 +73,6 @@ ${body}
     // Clean up the temporary file
     fs.unlinkSync(tempFile);
   }
-
 }
 
 /**

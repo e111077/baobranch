@@ -67,8 +67,6 @@ export function buildGraph() {
     crawlChildren(root, rootBranch);
   }
 
-  console.log(root);
-
   return root;
 }
 

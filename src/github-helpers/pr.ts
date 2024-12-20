@@ -1,4 +1,4 @@
-import { execCommand } from "../utils.js";
+import { execCommand, execCommandAsync } from "../utils.js";
 
 // Pull Request status types
 export type PRStatus = 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT' | 'unknown';
@@ -36,9 +36,9 @@ export function getPrStatus(prNum: number): PRStatus {
  *   console.error('Failed to update base branch:', result.error);
  * }
  */
-export function updateBaseBranch(prNum: number, baseBranch: string): {success: boolean, error?: Error} {
+export async function updateBaseBranch(prNum: number, baseBranch: string): Promise<{success: boolean, error?: Error}> {
   try {
-    execCommand(`gh pr edit ${prNum} --base ${baseBranch}`, true,{ stdio: ['pipe', 'pipe', 'pipe'] });
+    await execCommandAsync(`gh pr edit ${prNum} --base ${baseBranch}`, true,{ stdio: ['pipe', 'pipe', 'pipe'] });
     return {success: true};
   } catch (error: unknown) {
     return {success: false, error: error as Error};
