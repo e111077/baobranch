@@ -29,10 +29,15 @@ async function pushChainImpl() {
 
     try {
       // Force push the branch to origin
-      console.log(execCommand(`git push origin ${branch} -f`, true));
-      console.log(`Branch ${branch} successfully pushed to origin`);
+      const pushOutput = execCommand(`git push origin ${branch} -f`, true);
+
+      if (pushOutput.trim()) {
+        console.log(pushOutput);
+      }
+
+      console.log(`Branch ${branch} successfully pushed to origin\n`);
     } catch (e: unknown) {
-      console.error(`Failed to push branch ${branch} to origin`);
+      console.error(`Failed to push branch ${branch} to origin\n`);
       console.error(e);
     }
 
@@ -43,9 +48,12 @@ async function pushChainImpl() {
         return;
       }
 
-      queue.push(child.branchName);
+      queue.push(child.branchName.trim());
     });
   }
+
+  console.log('Chain push operation complete,');
+  execCommand(`git checkout ${startBranch}`);
 }
 
 /**
