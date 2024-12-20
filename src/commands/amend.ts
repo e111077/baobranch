@@ -23,10 +23,10 @@ async function amendImpl({
       const status = execCommand('git status --porcelain');
       const files = status.split('\n')
         .map(line => {
-          const match = line.match(/^..\s+(.+)$/);
+          const match = line.match(/^\s*(.)\s+(.+)$/);
           return match ? {
-            status: line.substring(0, 2),
-            path: match[1]
+            status: match[1],
+            path: match[2]
           } : null;
         })
         .filter((file): file is { status: string, path: string } => file !== null);
@@ -49,14 +49,14 @@ async function amendImpl({
       }
 
       // If multiple matches and it's a directory query, confirm with user
-      if (matchingFiles.length > 1) {
-        console.log('Multiple files match:');
-        matchingFiles.forEach(file => console.log(`  ${file.path}`));
+      if (matchingFiles.length) {
+        console.log('Changes to amend:');
+        matchingFiles.forEach(file => console.log(`  ${file.status} ${file.path}`));
 
         const { confirm } = await inquirer.prompt([{
           type: 'confirm',
           name: 'confirm',
-          message: 'Amend all these files?',
+          message: 'Amend these changes?',
           default: false
         }]);
 
@@ -76,21 +76,19 @@ async function amendImpl({
       });
 
     } else {
-      if (files.length !== 1) {
-        console.log('Amending multiple files:');
-        files.forEach(file => console.log(`  ${file.path}`));
+      console.log('Changes to amend:');
+      files.forEach(file => console.log(`  ${file.status} ${file.path}`));
 
-        const { confirm } = await inquirer.prompt([{
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Amend all these files?',
-          default: false
-        }]);
+      const { confirm } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'confirm',
+        message: 'Amend all these changes?',
+        default: false
+      }]);
 
-        if (!confirm) {
-          console.log('Aborting amend');
-          process.exit(0);
-        }
+      if (!confirm) {
+        console.log('Aborting amend');
+        process.exit(0);
       }
 
       // Add all changes if no specific file
