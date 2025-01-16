@@ -1,3 +1,4 @@
+import { makeMergeBaseTag } from "../tags/merge-base-master.js";
 import { makeStaleParentTag } from "../tags/stale.js";
 import { execCommand, type Branch } from "../utils.js";
 
@@ -34,7 +35,7 @@ export function findChildren(parentBranchName: string): Branch[] {
   const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n');
   const orphanedChildren = new Set<string>();
 
-  staleTags.forEach(tag => {
+  function isOrphanedChild(tag: string) {
     const tagCommit = execCommand(`git rev-parse ${tag}`);
     const children = formatBranchContains(
       execCommand(`git branch --contains $(git rev-parse ${tag})`),
@@ -46,7 +47,21 @@ export function findChildren(parentBranchName: string): Branch[] {
         orphanedChildren.add(child);
       }
     });
+  }
+
+  staleTags.forEach(tag => {
+    isOrphanedChild(tag);
   });
+
+  // if branch is master or main
+  if (parentBranchName === 'master' || parentBranchName === 'main') {
+    // Find orphaned children through stale merge-base tags
+    const staleMergeBaseTags = execCommand(`git tag | grep -E '^${makeMergeBaseTag('[0-9]+')}$'`).split('\n');
+
+    staleMergeBaseTags.forEach(tag => {
+      isOrphanedChild(tag);
+    });
+  }
 
   // Build branch objects for both current and orphaned children
   const children: Branch[] = [];
