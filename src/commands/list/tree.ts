@@ -17,7 +17,10 @@ function handler(): void {
     const masterOrMainBranch = execCommand('git branch --list main') ? 'main' : 'master';
     // Execute the tree command with color preservation
     const rawTree = execCommand(`
-MERGE_BASE=$(git merge-base --octopus $(git branch --format='%(refname)'))
+# grep filters out output like (HEAD detached at 123456)
+BRANCHES=$(git branch --format='%(refname)' | grep "^refs/")
+HEAD_COMMIT=$(git rev-parse HEAD)
+MERGE_BASE=$(git merge-base --octopus $BRANCHES $HEAD_COMMIT)
 
 if git rev-parse $MERGE_BASE^ >/dev/null 2>&1; then
     # Prints the git log, in the format of <hash> (decorations) and only keeps
@@ -27,7 +30,7 @@ if git rev-parse $MERGE_BASE^ >/dev/null 2>&1; then
         grep -E "^.+(tag)|(HEAD)|(\\([^/]+\\))|(\\([^/]+, ?origin/.+\\))|(\\(?origin/.+\\,[^/]+)).*$" | \
         cut -d' ' -f1)
 else
-    # No parent (root commit) - use range to include merge-base. Find all commits that are only on remote branches
+    # No parent (root commit) - use range to include merge-bas (^@ vs ~..). Find all commits that are only on remote branches
     COMMITS_OF_INTEREST=$(git log --simplify-by-decoration --decorate --oneline --branches \${MERGE_BASE}^@  --format="%h%d" | \
         grep -E "^.+(tag)|(HEAD)|(\\([^/]+\\))|(\\([^/]+, ?origin/.+\\))|(\\(?origin/.+\\,[^/]+)).*$" | \
         cut -d' ' -f1)
@@ -42,11 +45,13 @@ else
     git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches \${MERGE_BASE}^@  | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
 fi`);
 
-    const staleParentRegex = new RegExp(`tag:.+${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
-    const mergeBaseRegex = new RegExp(`tag:.+${makeMergeBaseTag('[0-9]+')}`, 'g');
+    const staleParentRegex = new RegExp(`tag:.+?${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
+    const mergeBaseRegex = new RegExp(`tag:.+?${makeMergeBaseTag('[0-9]+')}`, 'g');
+
     const tree = rawTree
       .replaceAll(staleParentRegex, '$1 - STALE REF')
       .replaceAll(mergeBaseRegex, `${masterOrMainBranch} - OLD TIP`);
+
     console.log(tree);
   } catch (error) {
     console.error('Error generating branch tree:', error);

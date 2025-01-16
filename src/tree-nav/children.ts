@@ -16,6 +16,7 @@ function formatBranchContains(containsOutput: string, branchName: string) {
  * Handles both current children and orphaned children (via stale tags)
  */
 export function findChildren(parentBranchName: string): Branch[] {
+  const isBrannchlessHead = parentBranchName === 'HEAD';
   // Find current direct children
   const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
   const possibleCurrentChildren = formatBranchContains(
