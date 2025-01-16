@@ -5,7 +5,7 @@ import inquirer from 'inquirer';
 import { cleanupStaleParentTags, markStale } from '../../tags/stale.js';
 
 export async function rebaseImpl(
-    { from, to, flag, silent = false }:
+  { from, to, flag, silent = false }:
     {
       from: string;
       to: string | undefined;
@@ -96,7 +96,6 @@ export const rebase = {
       .positional('branch', {
         describe: 'The branch to rebase onto',
         type: 'string',
-        demandOption: true
       })
       .option('continue', {
         describe: 'Continue the rebase after resolving conflicts',
@@ -105,11 +104,39 @@ export const rebase = {
       .option('abort', {
         describe: 'Abort the rebase operation',
         type: 'boolean'
+      })
+      .option('source', {
+        describe: 'The branch to rebase',
+        type: 'string',
+        alias: 's'
+      })
+      .option('destination', {
+        describe: 'The branch to rebase the source onto',
+        type: 'string',
+        alias: 'd'
+      })
+      .check((argv) => {
+        // Ensure either branch positional arg or --destination is provided
+        if (!argv.branch && !argv.destination) {
+          throw new Error('Either provide a branch argument or use --destination flag');
+        }
+
+        if (argv.branch && argv.destination) {
+          throw new Error('Please provide only one of branch argument or --destination flag');
+        }
+
+        if (argv.source !== undefined && !argv.source) {
+          throw new Error('Please provide a --source branch to rebase');
+        }
+
+        return true;
       }),
   handler: async (options) => {
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
     const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
+    const from = options.source ?? currentBranch;
+    const to = options.destination ?? options.branch;
 
-    rebaseImpl({ from: currentBranch, to: options.branch, flag });
+    rebaseImpl({ from, to, flag });
   }
-} satisfies CommandModule<{}, { branch?: string, continue?: boolean, abort?: boolean }>;
+} satisfies CommandModule<{}, { branch?: string, continue?: boolean, abort?: boolean, source?: string, destination?: string }>;
