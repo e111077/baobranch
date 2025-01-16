@@ -1,6 +1,6 @@
 {
   "name": "baobranch",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -9,9 +9,9 @@
     "bb": "./bin/index.js"
   },
   "scripts": {
-    "build": "rolldown src/index.ts -p node --dir bin -p node -m -s",
+    "build": "rolldown src/index.ts -p node --dir bin -p node -m",
     "start": "node ./bin/index",
-    "dev": "rolldown src/index.ts -p node --dir bin -p node -m -w -s"
+    "dev": "npm run build -- -w"
   },
   "repository": {
     "type": "git",
