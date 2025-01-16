@@ -15,6 +15,7 @@ function handler(options: ArgumentsCamelCase<ListTreeOptions>): void {
     retagMergeBase();
     cleanupStaleParentTags();
     const masterOrMainBranch = execCommand('git branch --list main') ? 'main' : 'master';
+    const format = options.simple ? '--format="%h%C(auto)%d"' : '';
     // Execute the tree command with color preservation
     const rawTree = execCommand(`
 # grep filters out output like (HEAD detached at 123456)
@@ -39,15 +40,15 @@ fi
 if git rev-parse $MERGE_BASE^ >/dev/null 2>&1; then
     # Has parent - use ~.. to show from merge-base up. Then only keeps the
     # commits of interest and the lines that don't have a commit (the branching)
-    git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches \${MERGE_BASE}~.. | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
+    git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches ${format} \${MERGE_BASE}~.. | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
 else
     # No parent (root commit) - use range to include merge-base
-    git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches \${MERGE_BASE}^@  | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
+    git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches ${format} \${MERGE_BASE}^@  | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
 fi`);
 
     const staleParentRegex = new RegExp(`tag:.+?${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
     const mergeBaseRegex = new RegExp(`tag:.+?${makeMergeBaseTag('[0-9]+')}`, 'g');
-    const originRegex = /(?:origin\/[^,)]+,.)|(?:,.*origin\/HEAD)/g;
+    const originRegex = /(?:origin\/[^,)]+,.)|(?:,.*origin\/[^)]+)/g;
 
     let tree = rawTree
       .replaceAll(staleParentRegex, '$1 - STALE REF')
@@ -69,9 +70,16 @@ export const listTree = {
   describe: 'Display a visual tree of all branches',
   handler,
   builder: (yargs: Argv) =>
-    yargs.option('show-remotes', {
+    yargs
+    .option('show-remotes', {
       alias: 'r',
       describe: 'Show remote branches from origin/branch-name',
+      type: 'boolean',
+      default: false,
+    })
+    .option('simple', {
+      alias: 's',
+      describe: 'Hide the description of each branch',
       type: 'boolean',
       default: false,
     }),
@@ -79,4 +87,5 @@ export const listTree = {
 
 interface ListTreeOptions {
   showRemotes?: boolean;
+  simple?: boolean;
 }
