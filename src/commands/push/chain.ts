@@ -4,7 +4,7 @@
  * Force pushes are used to ensure branch state consistency.
  */
 
-import type { CommandModule } from "yargs";
+import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { findChildren } from "../../tree-nav/children.js";
 
@@ -14,12 +14,15 @@ import { findChildren } from "../../tree-nav/children.js";
  *
  * @throws {Error} If git push fails for any branch
  */
-async function pushChainImpl() {
+async function pushChainImpl(options: ArgumentsCamelCase<PushChainOptions>) {
   // Get the current branch name
   const startBranch = execCommand('git rev-parse --abbrev-ref HEAD').trim();
+  const isMasterOrMain = startBranch === 'master' || startBranch === 'main';
+  const isBranchlessHead = startBranch === 'HEAD';
+  const shouldSkipCurrentBranch = (isMasterOrMain && !options.includeMain) || isBranchlessHead;
 
   // Initialize queue with starting branch
-  const queue = [startBranch];
+  const queue = shouldSkipCurrentBranch ? enqueueQualifiedPushChildren(startBranch, []) : [startBranch];
 
   // Process branches in breadth-first order
   while (queue.length) {
@@ -41,19 +44,33 @@ async function pushChainImpl() {
       console.error(e);
     }
 
-    // Add child branches to the queue
-    findChildren(branch).forEach(child => {
-      // Skip orphaned branches
-      if (child.orphaned) {
-        return;
-      }
-
-      queue.push(child.branchName.trim());
-    });
+    enqueueQualifiedPushChildren(branch, queue);
   }
 
   console.log('Chain push operation complete,');
   execCommand(`git checkout ${startBranch}`);
+}
+
+/**
+ * Finds the non-orphaned child branches of a given branch. Then it enqueues
+ * them onto the queue and returns the mutated queue.
+ *
+ * @param branch Branch from which to find children
+ * @param queue The current queue to enqueue onto
+ * @returns The mutated queue
+ */
+function enqueueQualifiedPushChildren(branch: string, queue: string[]) {
+  // Add child branches to the queue
+  findChildren(branch).forEach(child => {
+    // Skip orphaned branches
+    if (child.orphaned) {
+      return;
+    }
+
+    queue.push(child.branchName.trim());
+  });
+
+  return queue;
 }
 
 /**
@@ -69,4 +86,16 @@ export const pushChain = {
   command: ['chain', 'c'],
   describe: 'Force pushes the current branch and all its descendants to origin',
   handler: pushChainImpl,
-} as const satisfies CommandModule<{}, {}>;
+  builder: (yargs: Argv) =>
+    yargs
+      .option('include-main', {
+        alias: 'm',
+        type: 'boolean',
+        default: false,
+        describe: 'Include main/master branches in the chain push operation',
+      }),
+} as const satisfies CommandModule<{}, PushChainOptions>;
+
+interface PushChainOptions {
+  includeMain?: boolean;
+}
