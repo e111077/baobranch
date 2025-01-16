@@ -19,7 +19,6 @@ import {
 import { execCommand } from "../../utils.js";
 import { rebaseImpl } from "../rebase/index.js";
 import { getParentBranch } from "../../tree-nav/parent.js";
-import { makeMergeBaseTag } from "../../tags/merge-base-master.js";
 
 /**
  * Main implementation of the evolve command
@@ -101,8 +100,9 @@ function evolveChain({
   const isBranchlessHead = currentBranch === 'HEAD';
 
   const parent = flag === 'continue' ?
-    {branchName: ''} :
-    getParentBranch(currentBranch);
+    '' :
+    isMasterOrMain ? currentBranch :
+    getParentBranch(currentBranch).branchName;
 
   // don't do a rebase, just go to next branch if is master or main because we
   // never tag it as in-progress evolve
@@ -110,7 +110,7 @@ function evolveChain({
     // Rebase current branch onto parent
     rebaseImpl({
       from: currentBranch,
-      to: parent.branchName,
+      to: parent,
       flag,
       silent: true
     });

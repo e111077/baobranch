@@ -14,7 +14,7 @@ export async function rebaseImpl(
     }) {
   // Handle abort case
   if (flag === 'abort') {
-    execCommand('git rebase --abort', true);
+    execCommand('git rebase --abort');
     cleanupStaleParentTags();
     return;
   }
