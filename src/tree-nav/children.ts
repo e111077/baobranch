@@ -8,7 +8,13 @@ import { execCommand, type Branch } from "../utils.js";
 function formatBranchContains(containsOutput: string, branchName: string) {
   return new Set(containsOutput.split('\n')
     .map((branch) => branch.replace('*', '').trim())
-    .filter(branch => branch && branch !== branchName));
+    .filter(branch =>
+      branch &&
+      branch !== branchName &&
+      !branch.startsWith('(HEAD detached at') &&
+      branch !== 'master' &&
+      branch !== 'main'
+    ));
 }
 
 /**
@@ -16,7 +22,6 @@ function formatBranchContains(containsOutput: string, branchName: string) {
  * Handles both current children and orphaned children (via stale tags)
  */
 export function findChildren(parentBranchName: string): Branch[] {
-  const isBrannchlessHead = parentBranchName === 'HEAD';
   // Find current direct children
   const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
   const possibleCurrentChildren = formatBranchContains(

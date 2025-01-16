@@ -50,16 +50,20 @@ export async function tagEvolveBranches(branch: string, scope: 'full' | 'directs
   }
 
   const isMasterOrMain = branch === 'master' || branch === 'main';
+  const isBranchlessHead = branch === 'HEAD';
+  const shouldSkipCurrentBranch = isMasterOrMain || isBranchlessHead;
 
   // Prevent evolving main/master branches, enqueue children instead
-  let queue = isMasterOrMain ? enqueueQualifiedEvolveChildren(branch, scope, []) : [branch];
+  let queue = shouldSkipCurrentBranch ? enqueueQualifiedEvolveChildren(branch, scope, []) : [branch];
   let count = 0;
 
-  if (isMasterOrMain && queue.length) {
+  if (shouldSkipCurrentBranch && queue.length) {
     const { confirm } = await inquirer.prompt([{
       type: 'confirm',
       name: 'confirm',
-      message: `You are attempting to evolve the ${branch} branch which will evolve the following branches and all their descendants:
+      message: `You are attempting to evolve from ${
+        isBranchlessHead ? 'a HEAD without a branch': `the ${branch} branch`
+      } which will evolve the following branches and all their descendants:
 ${queue.join('\n')}
 
 Are you sure you want to continue?`,

@@ -1,4 +1,3 @@
-import { parse } from "path";
 import { makeMergeBaseTag, retagMergeBase } from "../tags/merge-base-master.js";
 import { makeStaleParentTag, parseStaleParentTag } from "../tags/stale.js";
 import { execCommand, type Branch } from "../utils.js";
@@ -10,6 +9,7 @@ import { execCommand, type Branch } from "../utils.js";
 export function getParentBranch(branchNameOrCommit: string): Branch {
   const parentCommit = execCommand(`git rev-parse ${branchNameOrCommit}^`);
   let parentBranchName = execCommand(`git branch --format="%(refname:short)" --points-at ${parentCommit}`)
+      .replace(/\(HEAD detached at .+\)/, '')
       .trim();
 
   if (parentBranchName) {

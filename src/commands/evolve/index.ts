@@ -98,6 +98,7 @@ function evolveChain({
   step?: number;
 }): void {
   const isMasterOrMain = currentBranch === 'master' || currentBranch === 'main';
+  const isBranchlessHead = currentBranch === 'HEAD';
 
   const parent = flag === 'continue' ?
     {branchName: ''} :
@@ -105,7 +106,7 @@ function evolveChain({
 
   // don't do a rebase, just go to next branch if is master or main because we
   // never tag it as in-progress evolve
-  if (!isMasterOrMain) {
+  if (!isMasterOrMain && !isBranchlessHead) {
     // Rebase current branch onto parent
     rebaseImpl({
       from: currentBranch,
