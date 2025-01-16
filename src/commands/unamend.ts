@@ -59,7 +59,7 @@ async function unamendImpl({ filename }: UnamendOptions) {
       }
 
       // Amend the commit without the removed files
-      execCommand('git commit --amend --no-edit', true);
+      execCommand('git commit --amend --no-edit --allow-empty', true);
     } else {
       console.error('Please specify a file or directory to unamend');
       process.exit(1);

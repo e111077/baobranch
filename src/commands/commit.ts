@@ -50,10 +50,10 @@ export async function commitImpl(argv: CommitOptions) {
   try {
     if (argv.message) {
       // If message provided, use it directly
-      execCommand(`git commit -m "${argv.message}"`, true);
+      execCommand(`git commit --allow-empty -m "${argv.message}"`, true);
     } else {
       // Otherwise open the default git commit editor
-      execCommand('git commit', true);
+      execCommand('git commit --allow-empty', true);
     }
   } catch (error: any) {
     execCommand(`git checkout ${currentBranch} && git branch -D ${branchName}`, true);

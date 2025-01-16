@@ -99,7 +99,7 @@ async function amendImpl({
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
 
     // Amend the commit without changing the message
-    execCommand('git commit --amend --no-edit', true);
+    execCommand('git commit --amend --no-edit --allow-empty', true);
     console.log('Successfully amended changes to previous commit');
     markStale(currentCommit, currentBranch, true);
 
