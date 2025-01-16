@@ -19,12 +19,13 @@ import {
 import { execCommand } from "../../utils.js";
 import { rebaseImpl } from "../rebase/index.js";
 import { getParentBranch } from "../../tree-nav/parent.js";
+import { makeMergeBaseTag } from "../../tags/merge-base-master.js";
 
 /**
  * Main implementation of the evolve command
  * @param options - Command line arguments and options
  */
-function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>): void {
+async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
   // Handle abort case
   if (options.abort) {
     clearAllEvolveTags();
@@ -66,7 +67,7 @@ function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>): void {
   }
 
   // Handle new evolution
-  tagEvolveBranches(initialBranch, options.scope);
+  await tagEvolveBranches(initialBranch, options.scope);
 
   evolveChain({
     currentBranch: initialBranch,
@@ -96,22 +97,28 @@ function evolveChain({
   flag: 'continue' | null;
   step?: number;
 }): void {
+  const isMasterOrMain = currentBranch === 'master' || currentBranch === 'main';
+
   const parent = flag === 'continue' ?
     {branchName: ''} :
     getParentBranch(currentBranch);
 
-  // Rebase current branch onto parent
-  rebaseImpl({
-    from: currentBranch,
-    to: parent.branchName,
-    flag,
-    silent: true
-  });
+  // don't do a rebase, just go to next branch if is master or main because we
+  // never tag it as in-progress evolve
+  if (!isMasterOrMain) {
+    // Rebase current branch onto parent
+    rebaseImpl({
+      from: currentBranch,
+      to: parent.branchName,
+      flag,
+      silent: true
+    });
 
-  // Clean up completed step
-  execCommand(`git tag -d ${generateEvolveTag(step, scope)}`);
+    // Clean up completed step
+    execCommand(`git tag -d ${generateEvolveTag(step, scope)}`);
 
-  step++;
+    step++;
+  }
 
   // Find next branch to evolve
   const nextBranch = execCommand(`git branch --format="%(refname:short)" --points-at ${generateEvolveTag(step, scope)}`).trim();
