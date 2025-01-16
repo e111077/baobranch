@@ -1,6 +1,6 @@
 // tree.ts
 
-import type { CommandModule } from "yargs";
+import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
 import { makeMergeBaseTag, retagMergeBase } from "../../tags/merge-base-master.js";
@@ -8,7 +8,7 @@ import { makeMergeBaseTag, retagMergeBase } from "../../tags/merge-base-master.j
 /**
  * Prints a visual tree representation of the Git branch structure with colors
  */
-function handler(): void {
+function handler(options: ArgumentsCamelCase<ListTreeOptions>): void {
   try {
     // Force Git to use colors even when output is not a terminal
     process.env.FORCE_COLOR = '1';
@@ -47,10 +47,15 @@ fi`);
 
     const staleParentRegex = new RegExp(`tag:.+?${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
     const mergeBaseRegex = new RegExp(`tag:.+?${makeMergeBaseTag('[0-9]+')}`, 'g');
+    const originRegex = /(?:origin\/[^,)]+,.)|(?:,.*origin\/HEAD)/g;
 
-    const tree = rawTree
+    let tree = rawTree
       .replaceAll(staleParentRegex, '$1 - STALE REF')
       .replaceAll(mergeBaseRegex, `${masterOrMainBranch} - OLD TIP`);
+
+    if (!options.showRemotes) {
+      tree = tree.replaceAll(originRegex, '');
+    }
 
     console.log(tree);
   } catch (error) {
@@ -62,5 +67,16 @@ fi`);
 export const listTree = {
   command: ['tree', 't'],
   describe: 'Display a visual tree of all branches',
-  handler
-} satisfies CommandModule<{}, {}>;
+  handler,
+  builder: (yargs: Argv) =>
+    yargs.option('show-remotes', {
+      alias: 'r',
+      describe: 'Show remote branches from origin/branch-name',
+      type: 'boolean',
+      default: false,
+    }),
+} as const satisfies CommandModule<{}, ListTreeOptions>;
+
+interface ListTreeOptions {
+  showRemotes?: boolean;
+}

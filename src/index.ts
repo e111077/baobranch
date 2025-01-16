@@ -18,11 +18,8 @@ const hideBin = (argv: string[]): string[] => argv.slice(2);
 
 yargs(hideBin(process.argv))
   .command({
+    ...listTree,
     command: '*',
-    describe: 'Show branch tree (default)',
-    handler: () => {
-      listTree.handler();
-    }
   })
   .command(list)
   .command(next.command, next.description, {}, next.impl)

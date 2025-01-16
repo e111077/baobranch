@@ -31,7 +31,8 @@ function handler(argv: ArgumentsCamelCase<FormatOptions>) {
 }
 
 export const list = {
-  command: ['list [command]', 'ls [command]'],
+  command: 'list [command]',
+  aliases: ['ls'],
   describe: 'List parent or children branches',
   builder: (yargs: Argv): Argv<FormatOptions> =>
     yargs
