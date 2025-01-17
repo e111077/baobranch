@@ -599,15 +599,14 @@ M bar.ts
 It will also create a root branch for all of these branches called `split-branch--my-branch`:
 
 ```bash
-* 7a48e4c (my-branch--split--__nomatch__)
-| * 7a48e4c (my-branch--split--__root__)
+* 7a48e50 (my-branch--split--__nomatch__)
+| * 7a48e4f (my-branch--split--__root__)
 |/
-| * 7a48e4c (my-branch--split--barProject)
+| * 7a48e4e (my-branch--split--barProject)
 |/
-| * 7a48e4c (my-branch--split--fooProject)
+| * 7a48e4d (my-branch--split--fooProject)
 |/
-| * 7a48e4c (split-branch--my-branch, SPLIT ROOT OF: my-branch)
-|/
+* 7a48e4c (split-branch--my-branch, SPLIT ROOT OF: my-branch)
 | * 7a48e4b (HEAD -> my-branch)
 |/
 * 0e59234 (main)
