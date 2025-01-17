@@ -62,12 +62,15 @@ export function buildGraph() {
     }
   });
 
+  const allNodes = new Map<string, Branch>();
+  allNodes.set(root.branchName, root);
+
   // Build complete hierarchy by crawling children
   for (const rootBranch of rootBranches.values()) {
-    crawlChildren(root, rootBranch);
+    crawlChildren(root, rootBranch, allNodes);
   }
 
-  return root;
+  return {graph: root, allNodes};
 }
 
 /**
@@ -75,11 +78,14 @@ export function buildGraph() {
  *
  * @param parent - The parent branch to add children to
  * @param child - The child branch to process
+ * @param nameNodeMap - A map of all branches by name
  *
  * @example
  * crawlChildren(parentBranch, childBranch);
  */
-function crawlChildren(parent: Branch, child: Branch) {
+function crawlChildren(parent: Branch, child: Branch, nameNodeMap: Map<string, Branch>) {
+  nameNodeMap.set(parent.branchName, parent);
+  nameNodeMap.set(child.branchName, child);
   // Check if child already exists in parent's children
   if (!parent.children.some(c => c.branchName === child.branchName)) {
     parent.children.push(child);
@@ -93,6 +99,7 @@ function crawlChildren(parent: Branch, child: Branch) {
   for (const grandchild of grandChildren) {
     grandchild.children = [];
     grandchild.parent = child;
-    crawlChildren(child, grandchild);
+    nameNodeMap.set(grandchild.branchName, grandchild);
+    crawlChildren(child, grandchild, nameNodeMap);
   }
 }

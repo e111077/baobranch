@@ -3,7 +3,7 @@
  * Synchronizes PR descriptions and base branches for a branch hierarchy
  */
 
-import type { CommandModule } from "yargs";
+import type { Argv, CommandModule } from "yargs";
 import { buildGraph } from "../../tree-nav/graph.js";
 import { getTableStr, upsertPrDescription } from '../../github-helpers/comment.js'
 import { getPrNumber, getPrStatus, updateBaseBranch } from '../../github-helpers/pr.js'
@@ -27,13 +27,25 @@ import { getParentBranch } from "../../tree-nav/parent.js";
  * // Sync all PRs in the branch hierarchy
  * await syncPrImpl({});
  */
-async function syncPrImpl() {
+async function syncPrImpl(options: { chain?: boolean }) {
   console.log('Building branch graph...');
-  const graph = buildGraph();
+  const {graph, allNodes} = buildGraph();
 
   console.log('Finding Open PRs...');
   const prToNumber = new Map<Branch, number>();
-  const stack = graph.children;
+  let stack = graph.children;
+
+  if (options.chain) {
+    const currentBranchName = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    const currentBranch = allNodes.get(currentBranchName);
+
+    if (!currentBranch) {
+      console.error(`Branch ${currentBranchName} not found in graph.`);
+      return;
+    }
+
+    stack = [currentBranch];
+  }
   const prsToUpdate = new Set<Branch>();
 
   // Find all open PRs in the branch hierarchy
@@ -160,4 +172,11 @@ export const syncPrs = {
   command: ['prs'],
   describe: 'Synchronizes comments and branch bases with PRs',
   handler: syncPrImpl,
-} as const satisfies CommandModule<{}, {}>;
+  builder: (yargs: Argv) =>
+    yargs
+      .option('chain', {
+        alias: 'c',
+        type: 'boolean',
+        description: 'Sync PRs in a chain starting from the current branch'
+      }),
+} as const satisfies CommandModule<{}, {chain?: boolean}>;
