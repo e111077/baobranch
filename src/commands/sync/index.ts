@@ -6,7 +6,7 @@
 
 import type { Argv, CommandModule } from "yargs";
 import { syncPrs } from "./prs.js";
-import { execCommand } from "../../utils.js";
+import { execCommand, execCommandAsync } from "../../utils.js";
 import { getPrStatus, getPrNumber } from '../../github-helpers/pr.js';
 
 /**
@@ -16,7 +16,7 @@ import { getPrStatus, getPrNumber } from '../../github-helpers/pr.js';
  *
  * @throws {Error} If git commands fail during sync process
  */
-function handler() {
+async function handler() {
   // Get current branch
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD').trim();
 
@@ -59,14 +59,13 @@ function handler() {
 
   console.log('Cleaning up merged and closed branches...');
 
+  const deletePromises: Promise<string>[] = [];
   // Delete branches that have merged or closed PRs
   branchesToDelete.forEach(branch => {
-    execCommand(`git branch -D ${branch}`);
-    try {
-      execCommand(`git push origin --delete ${branch}`);
-    } catch {
-    }
+    deletePromises.push(execCommandAsync(`git branch -D ${branch}`));
   });
+
+  await Promise.all(deletePromises);
 
   console.log('Sync complete.');
 }

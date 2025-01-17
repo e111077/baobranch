@@ -10,6 +10,9 @@ import { getPrNumber, getPrStatus, updateBaseBranch } from '../../github-helpers
 import { createPrLink } from '../../github-helpers/links.js'
 import type { Branch } from "../../utils";
 import inquirer from "inquirer";
+import { execSync } from "child_process";
+import { isSplitBranchTag } from "../../tags/split-branch.js";
+import { getParentBranch } from "../../tree-nav/parent.js";
 
 /**
  * Synchronizes PR descriptions and base branches for all open PRs in the branch hierarchy
@@ -100,8 +103,17 @@ async function syncPrImpl() {
       // Update PR description with relationship table
       await upsertPrDescription(prNumber, tableStr);
 
-      // Update PR base branch
-      const { success } = await updateBaseBranch(prNumber, branch.parent!.branchName);
+      // Sometimes the parent is different for the basebranch like with split branches
+      // we want to point to the parent of the root not to the empty commit itself
+      const baseBranch = getBaseBranch(branch);
+
+      let success = false;
+
+      if (baseBranch) {
+        // Update PR base branch
+        const response = await updateBaseBranch(prNumber, baseBranch!.branchName);
+        success = response.success;
+      }
 
       if (success) {
         console.log(`PR ${prNumber} updated.`);
@@ -116,6 +128,29 @@ async function syncPrImpl() {
   }
 
   await Promise.all(promises);
+}
+
+/**
+ * Returns the parent branch that a PR should be pointing to
+ *
+ * @param branch The branch to parse
+ * @returns The branch the PR should be pointing to as a parent
+ */
+function getBaseBranch(branch: Branch) {
+  const parent = branch.parent;
+
+  if (!parent) {
+    return parent;
+  }
+
+  const tags = execSync(`git tag --points-at ${parent.branchName}`).toString().split('\n');
+  const splitBranchTag = tags.find(tag => isSplitBranchTag(tag));
+
+  if (splitBranchTag) {
+    return getParentBranch(parent.branchName);
+  }
+
+  return parent;
 }
 
 /**

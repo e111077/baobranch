@@ -4,6 +4,7 @@ import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
 import { makeMergeBaseTag, retagMergeBase } from "../../tags/merge-base-master.js";
+import { makeSplitBranchTag } from "../../tags/split-branch.js";
 
 /**
  * Prints a visual tree representation of the Git branch structure with colors
@@ -46,12 +47,14 @@ else
     git -c color.ui=always log --simplify-by-decoration --decorate --oneline --graph --branches ${format} \${MERGE_BASE}^@  | grep -E "$COMMITS_OF_INTEREST|(^[^*]*$)"
 fi`);
 
+    const splitBranchTagRegex = new RegExp(`tag:.+?${makeSplitBranchTag('(.+?)')}`, 'g');
     const staleParentRegex = new RegExp(`tag:.+?${makeStaleParentTag('(.+?)', '[0-9]+')}`, 'g');
     const mergeBaseRegex = new RegExp(`tag:.+?${makeMergeBaseTag('[0-9]+')}`, 'g');
     const originRegex = /(?:origin\/[^,)]+,.)|(?:,.*origin\/[^)]+)/g;
 
     let tree = rawTree
       .replaceAll(staleParentRegex, '$1 - STALE REF')
+      .replaceAll(splitBranchTagRegex, 'SPLIT ROOT OF: $1')
       .replaceAll(mergeBaseRegex, `${masterOrMainBranch} - OLD TIP`);
 
     if (!options.showRemotes) {

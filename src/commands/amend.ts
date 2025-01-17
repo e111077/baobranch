@@ -5,6 +5,7 @@ import { markStale } from "../tags/stale.js";
 
 interface AmendOptions {
   filename?: string;
+  yesToAll?: boolean;
 }
 
 /**
@@ -16,20 +17,21 @@ async function amendImpl({
   /**
    * The specific file to amend (optional)
    */
-  filename
+  filename,
+  yesToAll
 }: AmendOptions) {
   try {
-      // Get status and find all matching files
-      const status = execCommand('git status --porcelain');
-      const files = status.split('\n')
-        .map(line => {
-          const match = line.match(/^\s*(.)\s+(.+)$/);
-          return match ? {
-            status: match[1],
-            path: match[2]
-          } : null;
-        })
-        .filter((file): file is { status: string, path: string } => file !== null);
+    // Get status and find all matching files
+    const status = execCommand('git status --porcelain');
+    const files = status.split('\n')
+      .map(line => {
+        const match = line.match(/^\s*(.)\s+(.+)$/);
+        return match ? {
+          status: match[1],
+          path: match[2]
+        } : null;
+      })
+      .filter((file): file is { status: string, path: string } => file !== null);
 
     if (filename) {
       // Find matches based on left-to-right path matching
@@ -53,12 +55,16 @@ async function amendImpl({
         console.log('Changes to amend:');
         matchingFiles.forEach(file => console.log(`  ${file.status} ${file.path}`));
 
-        const { confirm } = await inquirer.prompt([{
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Amend these changes?',
-          default: false
-        }]);
+        let confirm = true;
+        if (!yesToAll) {
+          const choice = await inquirer.prompt([{
+            type: 'confirm',
+            name: 'confirm',
+            message: 'Amend these changes?',
+            default: false
+          }]);
+          confirm = choice.confirm;
+        }
 
         if (!confirm) {
           console.log('Aborting amend');
@@ -79,12 +85,18 @@ async function amendImpl({
       console.log('Changes to amend:');
       files.forEach(file => console.log(`  ${file.status} ${file.path}`));
 
-      const { confirm } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'confirm',
-        message: 'Amend all these changes?',
-        default: false
-      }]);
+      let confirm = true;
+
+      if (!yesToAll) {
+        const choice = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Amend all these changes?',
+          default: false
+        }]);
+
+        confirm = choice.confirm;
+      }
 
       if (!confirm) {
         console.log('Aborting amend');
@@ -120,7 +132,13 @@ export const amend = {
         describe: 'Specific file to amend (optional)',
         type: 'string',
         demandOption: false
-      } as const),
+      } as const)
+      .option('yes-to-all', {
+        alias: 'y',
+        describe: 'Answer yes to all prompts',
+        type: 'boolean',
+        default: false
+      }),
   handler: async (argv) => {
     await amendImpl(argv as AmendOptions);
   }

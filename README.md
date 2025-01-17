@@ -192,23 +192,38 @@ bb --help
 Show branch tree (default)
 
 Commands:
-  bb                     Show branch tree (default)            [default]
-  bb list [command]      List parent or children branches  [aliases: ls]
-  bb next                Check out to a child branch
-  bb prev                Check out to the parent branch
-  bb amend [filename]    Amend changes to the previous commit
-  bb unamend <filename>  Remove files from the last commit and move them
-                          to staging
-  bb evolve              Rebase the current orphaned branch onto a fresh
-                          reference of its parent branch as well as all
-                         of its descendants
-  bb rebase [branch]     Rebase the current branch-commit onto the given
-                          branch
-  bb commit              Create a new branch and commit changes
-  bb sync [command]      Synchronizes with remotes
-  bb push <command>      Pushes changes to remotes          [aliases: p]
-  bb pull                Pull updates and track orphaned branches
-  bb completion          Generate shell completion script
+  fb                       Display a visual tree of all branches
+                                                               [default]
+  fb list [command]        List parent or children branches[aliases: ls]
+  fb next                  Check out to a child branch
+  fb prev                  Check out to the parent branch
+  fb amend [filename]      Amend changes to the previous commit
+  fb unamend <filename>    Remove files from the last commit and move th
+                           em to staging
+  fb evolve                Rebase the current orphaned branch onto a fre
+                           sh reference of its parent branch as well as
+                           all of its descendants
+  fb rebase [branch]       Rebase the current branch-commit onto the giv
+                           en branch
+  fb commit                Create a new branch and commit changes
+  fb sync [command]        Synchronizes with remotes
+  fb push <command>        Pushes changes to remotes        [aliases: p]
+  fb pull                  Pull updates and track orphaned branches
+  fb split [fileSplitter]  Split the current commit at HEAD into multipl
+                           e commits based on the start of a filepath. e
+                           .g. given a fileSplitter of src/ a commit wit
+                           h changes to src/commands/commit.ts and src/c
+                           ommands/split/index.ts would be split into tw
+                           o commits, one for each directory.
+  fb completion            Generate shell completion script
+
+Options:
+      --version       Show version number                      [boolean]
+  -r, --show-remotes  Show remote branches from origin/branch-name
+                                              [boolean] [default: false]
+  -s, --simple        Hide the description of each branch
+                                              [boolean] [default: false]
+  -h, --help          Show help                                [boolean]
 
 Options:
       --version  Show version number                           [boolean]
@@ -534,3 +549,94 @@ This command does the following:
 bb sync prs
 ```
 
+### Splitting commits
+
+#### Split the current commit at HEAD into multiple commits based on the start of a filepath
+
+Sometimes you have a big commit and you want to split it into multiple smaller
+commits based on a filepath. For example, say you have a commit `my-branch` with
+changes to the following files:
+
+```
+// my-branch
+M src/fooProject/foo.ts
+M src/fooProject/bar.ts
+M src/bazProject/foo.ts
+M src/bazProject/bar.ts
+M src/foo.ts
+M src/bar.ts
+M foo.ts
+M bar.ts
+```
+
+You want to split the commit into 4 commits, one for each directory. You can
+do the following:
+
+```bash
+bb split src/
+```
+
+This will create 4 commits, one for each directory:
+
+```
+// my-branch--split--fooProject
+M src/fooProject/foo.ts
+M src/fooProject/bar.ts
+
+// my-branch--split--bazProject
+M src/bazProject/foo.ts
+M src/bazProject/bar.ts
+
+// my-branch--split--__root__
+src/foo.ts
+src/bar.ts
+
+// my-branch--split--__nomatch__
+M foo.ts
+M bar.ts
+```
+
+It will also create a root branch for all of these branches called `split-branch--my-branch`:
+
+```bash
+* 7a48e4c (my-branch--split--__nomatch__)
+| * 7a48e4c (my-branch--split--__root__)
+|/
+| * 7a48e4c (my-branch--split--barProject)
+|/
+| * 7a48e4c (my-branch--split--fooProject)
+|/
+| * 7a48e4c (split-branch--my-branch, SPLIT ROOT OF: my-branch)
+|/
+| * 7a48e4b (HEAD -> my-branch)
+|/
+* 0e59234 (main)
+```
+
+It will leave your source branch alone and you can edit these branches. If you
+split the source branch again, it will offer to delete all the currently split
+branches and create new ones.
+
+#### Publish the split branches to PRs
+
+You can then publish these branches to PRs using the `bb split --publish`
+command. This will open a web page for each branch in your browser to create a
+PR on github.
+
+```bash
+bb split --publish
+# N.B. Make sure to call bb sync prs after you create all of them to fix the
+# base branch
+```
+
+You *should* only have to press create PR as this will set the base branch to
+the root branch of the split branches, meaning that the PR should only be one
+commit ahead of the root branch and should pre-populate the PR title and body
+with the contents of the commit message if properly formatted.
+
+**N.B.** to fix the base branches of the PRs so that you do not accidentally
+merge into the root branch. After you create the PRs, call:
+
+```bash
+bb sync prs
+```

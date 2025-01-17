@@ -13,6 +13,7 @@ import { unamend } from './commands/unamend.js';
 import { commit } from './commands/commit.js';
 import { sync } from './commands/sync/index.js';
 import { push } from './commands/push/index.js';
+import { split } from './commands/split/index.js';
 
 const hideBin = (argv: string[]): string[] => argv.slice(2);
 
@@ -32,6 +33,7 @@ yargs(hideBin(process.argv))
   .command(sync)
   .command(push)
   .command(pull.command, pull.description, {}, pull.impl)
+  .command(split)
   .completion('completion', 'Generate shell completion script')
   .strict()
   .help()

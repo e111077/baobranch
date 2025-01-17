@@ -4,7 +4,7 @@
  * Force pushes are used to ensure branch state consistency.
  */
 
-import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
+import type { Argv, CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { findChildren } from "../../tree-nav/children.js";
 
@@ -14,7 +14,7 @@ import { findChildren } from "../../tree-nav/children.js";
  *
  * @throws {Error} If git push fails for any branch
  */
-async function pushChainImpl(options: ArgumentsCamelCase<PushChainOptions>) {
+export async function pushChainImpl(options: PushChainOptions) {
   // Get the current branch name
   const startBranch = execCommand('git rev-parse --abbrev-ref HEAD').trim();
   const isMasterOrMain = startBranch === 'master' || startBranch === 'main';
@@ -39,6 +39,10 @@ async function pushChainImpl(options: ArgumentsCamelCase<PushChainOptions>) {
       }
 
       console.log(`Branch ${branch} successfully pushed to origin\n`);
+
+      if (options.postPush) {
+        await options.postPush(branch);
+      }
     } catch (e: unknown) {
       console.error(`Failed to push branch ${branch} to origin\n`);
       console.error(e);
@@ -98,4 +102,6 @@ export const pushChain = {
 
 interface PushChainOptions {
   includeMain?: boolean;
+  yesToAll?: boolean;
+  postPush?: (branch: string) => Promise<void>;
 }
