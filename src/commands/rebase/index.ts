@@ -116,6 +116,14 @@ export const rebase = {
         alias: 'd'
       })
       .check((argv) => {
+        if (argv.continue && argv.abort) {
+          throw new Error('Please provide only one of --continue or --abort flag');
+        }
+
+        if (argv.continue || argv.abort) {
+          return true;
+        }
+
         // Ensure either branch positional arg or --destination is provided
         if (!argv.branch && !argv.destination) {
           throw new Error('Either provide a branch argument or use --destination flag');
