@@ -7,6 +7,7 @@ import inquirer from "inquirer";
 import { findChildren } from "../../tree-nav/children.js";
 import { makeSplitBranchBranchName, makeSplitBranchTag, parseSplitBranchBranchName } from "../../tags/split-branch.js";
 import { pushChainImpl } from "../push/chain.js";
+import { CreateFileError, ExternalEditor, LaunchEditorError, ReadFileError } from 'external-editor';
 
 export async function splitImpl(options: SplitOptions) {
   const originBranch = execCommand('git rev-parse --abbrev-ref HEAD').toString().trim()
@@ -219,20 +220,53 @@ Empty commit. This commit was created from splitting \\\`${sourceBranch}\\\` int
   // commit per split
   execCommand(`git restore --staged .`, true);
 
+  let message = options.message ?
+    options.message :
+    `${sourceCommitMessage ?? `[split-commit] Split commit from \\\`${sourceBranch}\\\` – \\\`{{BB_DIRECTORY}}\``}
+
+This PR is manually generated with [baobranch](https://www.npmjs.com/package/baobranch) by splitting branch [\\\`${sourceBranch}\\\`](../tree/${sourceBranch}) into multiple PRs. See branch [\\\`${sourceBranch}\\\`](../tree/${sourceBranch}) for the full commit, or see the PR for parent branch \\\`${emptyRootBranchName}\\\` to track the status of all split branches.`;
+
+  if (!options.yesToAll && !options.message) {
+    let editor: ExternalEditor | null = null;
+    try {
+      editor = new ExternalEditor(message);
+      message = editor.run()
+
+      if (editor.last_exit_status !== 0) {
+        console.log('The editor exited with a non-zero code, cancelling split.');
+        return;
+      }
+    } catch (err: unknown) {
+      if (err instanceof CreateFileError) {
+        console.log('Failed to create the temporary file. Cancelling split.');
+        return;
+      } else if (err instanceof ReadFileError) {
+        console.log('Failed to read the temporary file. Cancelling split.');
+        return;
+      } else if (err instanceof LaunchEditorError) {
+        console.log('Failed to launch your editor. Cancelling split.');
+        return;
+      }
+
+      throw err;
+    } finally {
+      editor?.cleanup?.();
+    }
+  }
+
   for (const dir of chosenDirs.dirs) {
     const files = dirToFiles.get(dir)!;
     const branchName = `${sourceBranch}--split--${dir}`;
 
     execCommand(`git add ${files.join(' ')}`, true);
 
+    const displayedDir = dir
+      .replace('__nomatch__', 'non-matching files')
+      .replace('__root__', `${fileSplitter}`);
+
     commitImpl({
       branch: branchName,
-      message: `${sourceCommitMessage ?? `[split-commit] Split commit from \\\`${sourceBranch}\\\` – \\\`${dir
-        .replace('__nomatch__', 'non-matching files')
-        .replace('__root__', `${fileSplitter}`)
-        }\``}
-
-This PR is manually generated with [baobranch](https://www.npmjs.com/package/baobranch) by splitting branch [\\\`${sourceBranch}\\\`](../tree/${sourceBranch}) into multiple PRs. See branch [\\\`${sourceBranch}\\\`](../tree/${sourceBranch}) for the full commit, or see the PR for parent branch \\\`${emptyRootBranchName}\\\` to track the status of all split branches.`
+      message: message.replaceAll(/\{\{\s*?BB_DIRECTOR\s*?\}\}/g, displayedDir)
     });
 
     console.log(`Successfully created branch ${branchName} with ${files.length} changes.`);
@@ -355,8 +389,16 @@ export const split = {
         describe: 'The branch from which to split from. Default is current branch',
         type: 'string'
       })
+      .option('message', {
+        describe: 'The commit message to use for the split commits. Use {{BB_DIRECTORY}} to ' +
+          'insert the directory name into the message. If not provided, you will be prompted ' +
+          'to enter a message for all split commits.',
+        type: 'string',
+        alias: 'm'
+      })
       .option('yes-to-all', {
-        describe: 'Automatically split all directories without prompting',
+        describe: 'Automatically split all directories without prompting. This will also ' +
+          'use a default commit message if one is not provided with the --message option.',
         type: 'boolean',
         alias: 'y'
       })
@@ -380,4 +422,5 @@ interface SplitOptions {
   yesToAll?: boolean;
   clean?: boolean;
   publish?: boolean;
+  message?: string;
 }
