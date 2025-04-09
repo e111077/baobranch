@@ -38,6 +38,24 @@ interface ExecError extends Error {
   status: number;
 }
 
+let lastRepoRoot: string | null = null;
+/**
+ * Gets the git repository root directory
+ * @returns The absolute path to the git repository root
+ */
+export function getGitRepoRoot(): string {
+  if (lastRepoRoot) {
+    return lastRepoRoot;
+  }
+  try {
+    lastRepoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).toString().trim();
+    return lastRepoRoot;
+  } catch (error) {
+    console.error('Error finding git repository root:', error);
+    return process.cwd();
+  }
+}
+
 /**
  * Executes a shell command and returns its output
  * @param command - The shell command to execute
@@ -47,14 +65,24 @@ interface ExecError extends Error {
 export function execCommand(
   command: string,
   throwOnError: boolean = false,
-  options: { stdio?: StdioOptions } = {}
+  options: { stdio?: StdioOptions; useGitRoot?: boolean } = {}
 ): string {
   try {
     const defaultOptions = {
       encoding: 'utf8',
-      stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe'
+      stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe',
+      useGitRoot: command.startsWith('git ')
     };
-    const execOptions = { ...defaultOptions, ...options } as ExecSyncOptions;
+    
+    const mergedOptions = { ...defaultOptions, ...options };
+    const { useGitRoot, ...execOptions } = mergedOptions as ExecSyncOptions & { useGitRoot?: boolean };
+    
+    // For git commands, ensure we're in the git repository root
+    if (useGitRoot) {
+      const gitRoot = getGitRepoRoot();
+      execOptions.cwd = gitRoot;
+    }
+    
     return execSync(command, execOptions).toString().trim();
   } catch (error) {
     if (throwOnError && isExecError(error)) {
@@ -67,15 +95,27 @@ export function execCommand(
 export async function execCommandAsync(
   command: string,
   throwOnError: boolean = false,
-  options: { stdio?: StdioOptions } = {}
+  options: { stdio?: StdioOptions; useGitRoot?: boolean } = {}
 ): Promise<string> {
   try {
     const defaultOptions = {
       encoding: 'utf8',
-      stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe'
+      stdio: throwOnError ? ['inherit', 'inherit', 'pipe'] : 'pipe',
+      useGitRoot: command.startsWith('git ')
     };
-    const execOptions = { ...defaultOptions, ...options } as ExecSyncOptions;
-    const res = new Promise<string>((resolve, reject) => exec(command, execOptions, (err, stdout) => err ? reject(err) : resolve(stdout)));
+    
+    const mergedOptions = { ...defaultOptions, ...options };
+    const { useGitRoot, ...execOptions } = mergedOptions as ExecSyncOptions & { useGitRoot?: boolean };
+    
+    // For git commands, ensure we're in the git repository root
+    if (useGitRoot) {
+      const gitRoot = getGitRepoRoot();
+      execOptions.cwd = gitRoot;
+    }
+    
+    const res = new Promise<string>((resolve, reject) =>
+      exec(command, execOptions, (err, stdout) => err ? reject(err) : resolve(stdout))
+    );
     return (await res).toString().trim();
   } catch (error) {
     if (throwOnError && isExecError(error)) {
