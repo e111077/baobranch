@@ -29,7 +29,7 @@ import { getParentBranch } from "../../tree-nav/parent.js";
  */
 async function syncPrImpl(options: { chain?: boolean }) {
   console.log('Building branch graph...');
-  const {graph, allNodes} = buildGraph();
+  const {graph, allNodes} = await buildGraph();
 
   console.log('Finding Open PRs...');
   const prToNumber = new Map<Branch, number>();

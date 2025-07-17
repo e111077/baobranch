@@ -10,7 +10,7 @@ export const pull: Command = {
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
     console.log(`Pulling updates for ${currentBranch}...`);
 
-    const children = findChildren(currentBranch);
+    const children = await findChildren(currentBranch);
 
     try {
       execCommand('git pull', true);

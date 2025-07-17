@@ -28,7 +28,7 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
   // Handle abort case
   if (options.abort) {
     clearAllEvolveTags();
-    evolveSelfImpl(options);
+    await evolveSelfImpl(options);
     return;
   }
 
@@ -37,7 +37,7 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
 
   // Handle self evolution
   if (options.scope === 'self' || isContinuingSelf) {
-    evolveSelfImpl(options);
+    await evolveSelfImpl(options);
     clearAllEvolveTags();
     return;
   }
@@ -54,7 +54,7 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
     );
     const flag = rebaseInProgress ? 'continue' : null;
 
-    evolveChain({
+    await evolveChain({
       currentBranch: branchToResume,
       scope: options.scope,
       flag,
@@ -68,7 +68,7 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
   // Handle new evolution
   await tagEvolveBranches(initialBranch, options.scope);
 
-  evolveChain({
+  await evolveChain({
     currentBranch: initialBranch,
     scope: options.scope,
     flag: null
@@ -85,7 +85,7 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
  * @param params.flag - Optional flag for rebase operation
  * @param params.step - Current step in the evolution process
  */
-function evolveChain({
+async function evolveChain({
   currentBranch,
   scope,
   flag,
@@ -108,7 +108,7 @@ function evolveChain({
   // never tag it as in-progress evolve
   if (!isMasterOrMain && !isBranchlessHead) {
     // Rebase current branch onto parent
-    rebaseImpl({
+    await rebaseImpl({
       from: currentBranch,
       to: parent,
       flag,
@@ -131,7 +131,7 @@ function evolveChain({
   }
 
   // Continue chain with next branch
-  evolveChain({
+  await evolveChain({
     currentBranch: nextBranch,
     scope,
     flag: null,

@@ -54,7 +54,7 @@ export async function tagEvolveBranches(branch: string, scope: 'full' | 'directs
   const shouldSkipCurrentBranch = isMasterOrMain || isBranchlessHead;
 
   // Prevent evolving main/master branches, enqueue children instead
-  let queue = shouldSkipCurrentBranch ? enqueueQualifiedEvolveChildren(branch, scope, []) : [branch];
+  let queue = shouldSkipCurrentBranch ? await enqueueQualifiedEvolveChildren(branch, scope, []) : [branch];
   let count = 0;
 
   if (shouldSkipCurrentBranch && queue.length) {
@@ -83,7 +83,7 @@ Are you sure you want to continue?`,
     count++;
 
     // Add child branches to queue based on scope
-    enqueueQualifiedEvolveChildren(currentBranch, scope, queue);
+    await enqueueQualifiedEvolveChildren(currentBranch, scope, queue);
   }
 }
 
@@ -97,8 +97,8 @@ Are you sure you want to continue?`,
  * @param queue The current queue to enqueue onto
  * @returns The mutated queue
  */
-function enqueueQualifiedEvolveChildren(branch: string, scope: 'full' | 'directs', queue: string[]) {
-  const children = findChildren(branch);
+async function enqueueQualifiedEvolveChildren(branch: string, scope: 'full' | 'directs', queue: string[]) {
+  const children = await findChildren(branch);
   children.forEach(child => {
     if (scope === 'directs' && child.orphaned) {
       return;

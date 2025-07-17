@@ -50,7 +50,7 @@ export async function rebaseImpl(
 
   // Perform the rebase
   console.log(`Rebasing ${from} onto ${to}...`);
-  const children = findChildren(from);
+  const children = await findChildren(from);
 
   try {
     execCommand(`git rebase --onto ${to} ${fromCommit}^ ${from}`, true);
@@ -145,6 +145,6 @@ export const rebase = {
     const from = options.source ?? currentBranch;
     const to = options.destination ?? options.branch;
 
-    rebaseImpl({ from, to, flag });
+    await rebaseImpl({ from, to, flag });
   }
 } satisfies CommandModule<{}, { branch?: string, continue?: boolean, abort?: boolean, source?: string, destination?: string }>;

@@ -29,11 +29,11 @@ import type { EvolveOptions } from "./options.js";
  * // Continue after resolving conflicts
  * evolveSelfImpl({ scope: 'self', continue: true });
  */
-export function evolveSelfImpl(options: ArgumentsCamelCase<EvolveOptions>) {
+export async function evolveSelfImpl(options: ArgumentsCamelCase<EvolveOptions>) {
     // Get current branch name
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
     const parent = getParentBranch(currentBranch);
     const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
 
-    rebaseImpl({ from: currentBranch, to: parent.branchName, flag });
+    await rebaseImpl({ from: currentBranch, to: parent.branchName, flag });
 }

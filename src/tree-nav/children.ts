@@ -1,5 +1,6 @@
 import { makeMergeBaseTag } from "../tags/merge-base-master.js";
 import { makeStaleParentTag } from "../tags/stale.js";
+import { getParentBranch } from "./parent.js";
 import { execCommand, type Branch } from "../utils.js";
 
 /**
@@ -19,55 +20,78 @@ function formatBranchContains(containsOutput: string, branchName: string) {
 
 /**
  * Finds all child branches of a given parent branch
- * Handles both current children and orphaned children (via stale tags)
+ * Uses async getParentBranch calls to efficiently determine parent-child relationships
  */
-export function findChildren(parentBranchName: string): Branch[] {
-  // Find current direct children
+export async function findChildren(parentBranchName: string): Promise<Branch[]> {
+  // Find all possible children (branches that contain the parent commit)
   const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
   const possibleCurrentChildren = formatBranchContains(
     execCommand(`git branch --contains ${parentCommit}`),
     parentBranchName
   );
 
-  const currentChildren = new Set<string>();
-  possibleCurrentChildren.forEach(child => {
-    const actualParentCommit = execCommand(`git rev-parse ${child}^`);
-    if (parentCommit === actualParentCommit) {
-      currentChildren.add(child);
+  // Find additional possible children from stale tags
+  const additionalPossibleChildren = new Set<string>();
+  
+  try {
+    const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n').filter(tag => tag);
+    
+    staleTags.forEach(tag => {
+      const tagCommit = execCommand(`git rev-parse ${tag}`);
+      const children = formatBranchContains(
+        execCommand(`git branch --contains ${tagCommit}`),
+        parentBranchName
+      );
+      children.forEach(child => additionalPossibleChildren.add(child));
+    });
+
+    // For master/main, also check merge-base tags
+    if (parentBranchName === 'master' || parentBranchName === 'main') {
+      const staleMergeBaseTags = execCommand(`git tag | grep -E '^${makeMergeBaseTag('[0-9]+')}$'`).split('\n').filter(tag => tag);
+      staleMergeBaseTags.forEach(tag => {
+        const tagCommit = execCommand(`git rev-parse ${tag}`);
+        const children = formatBranchContains(
+          execCommand(`git branch --contains ${tagCommit}`),
+          parentBranchName
+        );
+        children.forEach(child => additionalPossibleChildren.add(child));
+      });
+    }
+  } catch {
+    // Ignore errors from stale tag processing
+  }
+
+  // Combine all possible children and check their parents in parallel
+  const allPossibleChildren = new Set([...possibleCurrentChildren, ...additionalPossibleChildren]);
+  
+  const parentChecks = Array.from(allPossibleChildren).map(async (child) => {
+    try {
+      // getParentBranch can be slow so parallelization is important
+      const childParent = getParentBranch(child);
+      return {
+        child,
+        parent: childParent.branchName,
+        isStale: childParent.stale
+      };
+    } catch {
+      return { child, parent: null, isStale: false };
     }
   });
 
-  // Find orphaned children through stale tags
-  const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n');
+  const parentResults = await Promise.all(parentChecks);
+
+  const currentChildren = new Set<string>();
   const orphanedChildren = new Set<string>();
-
-  function isOrphanedChild(tag: string) {
-    const tagCommit = execCommand(`git rev-parse ${tag}`);
-    const children = formatBranchContains(
-      execCommand(`git branch --contains $(git rev-parse ${tag})`),
-      parentBranchName
-    );
-    children.forEach(child => {
-      const parentCommit = execCommand(`git rev-parse ${child}^`);
-      if (parentCommit === tagCommit) {
+  
+  parentResults.forEach(({ child, parent, isStale }) => {
+    if (parent === parentBranchName) {
+      if (isStale) {
         orphanedChildren.add(child);
+      } else {
+        currentChildren.add(child);
       }
-    });
-  }
-
-  staleTags.forEach(tag => {
-    isOrphanedChild(tag);
+    }
   });
-
-  // if branch is master or main
-  if (parentBranchName === 'master' || parentBranchName === 'main') {
-    // Find orphaned children through stale merge-base tags
-    const staleMergeBaseTags = execCommand(`git tag | grep -E '^${makeMergeBaseTag('[0-9]+')}$'`).split('\n');
-
-    staleMergeBaseTags.forEach(tag => {
-      isOrphanedChild(tag);
-    });
-  }
 
   // Build branch objects for both current and orphaned children
   const children: Branch[] = [];

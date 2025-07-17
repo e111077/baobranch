@@ -308,7 +308,7 @@ async function clean(emptyRootBranchName: string, checkBranchExists: boolean) {
     }
   }
 
-  const children = findChildren(emptyRootBranchName);
+  const children = await findChildren(emptyRootBranchName);
 
   if (checkBranchExists) {
     const { confirm } = await inquirer.prompt([{
