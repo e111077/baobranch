@@ -7,10 +7,11 @@ import { getParentBranch } from '../../tree-nav/parent.js';
 import { findChildren } from '../../tree-nav/children.js';
 import { listTree } from './tree.js';
 
-function handler(argv: ArgumentsCamelCase<FormatOptions>) {
+async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const branchName = execCommand('git rev-parse --abbrev-ref HEAD');
   const parent = getParentBranch(branchName);
-  const branch = findChildren(parent.branchName).find(child => child.branchName === branchName)!;
+  const children = await findChildren(parent.branchName);
+  const branch = children.find(child => child.branchName === branchName)!;
   const notes = getBranchListAnnotations(branch);
 
   switch (argv.format) {

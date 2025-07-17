@@ -22,7 +22,7 @@ export async function pushChainImpl(options: PushChainOptions) {
   const shouldSkipCurrentBranch = (isMasterOrMain && !options.includeMain) || isBranchlessHead;
 
   // Initialize queue with starting branch
-  const queue = shouldSkipCurrentBranch ? enqueueQualifiedPushChildren(startBranch, []) : [startBranch];
+  const queue = shouldSkipCurrentBranch ? await enqueueQualifiedPushChildren(startBranch, []) : [startBranch];
 
   // Process branches in breadth-first order
   while (queue.length) {
@@ -48,7 +48,7 @@ export async function pushChainImpl(options: PushChainOptions) {
       console.error(e);
     }
 
-    enqueueQualifiedPushChildren(branch, queue);
+    await enqueueQualifiedPushChildren(branch, queue);
   }
 
   console.log('Chain push operation complete,');
@@ -63,9 +63,10 @@ export async function pushChainImpl(options: PushChainOptions) {
  * @param queue The current queue to enqueue onto
  * @returns The mutated queue
  */
-function enqueueQualifiedPushChildren(branch: string, queue: string[]) {
+async function enqueueQualifiedPushChildren(branch: string, queue: string[]) {
   // Add child branches to the queue
-  findChildren(branch).forEach(child => {
+  const children = await findChildren(branch);
+  children.forEach(child => {
     // Skip orphaned branches
     if (child.orphaned) {
       return;

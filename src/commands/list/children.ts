@@ -3,9 +3,9 @@ import type { FormatOptions } from "./options";
 import { execCommand, getBranchListAnnotations } from '../../utils.js';
 import { findChildren } from '../../tree-nav/children.js';
 
-function handler(argv: ArgumentsCamelCase<FormatOptions>) {
+async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const children = findChildren(currentBranch);
+  const children = await findChildren(currentBranch);
 
   if (!children.length) {
     console.log('No child branches found');

@@ -1,4 +1,5 @@
-import { makeMergeBaseTag, retagMergeBase } from "../tags/merge-base-master.js";
+import { makeMergeBaseTag } from "../tags/merge-base-master.js";
+import { cleanupTags } from "../tags/cleanup.js";
 import { makeStaleParentTag, parseStaleParentTag } from "../tags/stale.js";
 import { execCommand, type Branch } from "../utils.js";
 
@@ -22,7 +23,7 @@ export function getParentBranch(branchNameOrCommit: string): Branch {
     };
   }
 
-  retagMergeBase();
+  cleanupTags();
 
   // Check for stale parent tags
   const staleTag = execCommand(`git tag --points-at ${parentCommit} | grep -E '^${makeStaleParentTag('.+?', '.+?')}$'`);

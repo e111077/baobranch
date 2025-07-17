@@ -10,7 +10,7 @@ import { findChildren } from "../tree-nav/children.js";
  */
 async function impl(): Promise<void> {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const children = findChildren(currentBranch);
+  const children = await findChildren(currentBranch);
 
   if (!children.length) {
     console.log('No child branches found');

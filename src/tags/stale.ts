@@ -6,7 +6,7 @@
  */
 
 import { execCommand } from "../utils.js";
-import { retagMergeBase } from "./merge-base-master.js";
+import { cleanupTags } from "./cleanup.js";
 
 /**
  * Creates a tag name for marking stale parent branches using a specific format
@@ -74,7 +74,7 @@ export function markStale(commit: string, branchName: string, hasDirectChildren:
   }
 
   cleanupStaleParentTags();
-  retagMergeBase();
+  cleanupTags();
 }
 
 /**
@@ -103,4 +103,35 @@ export function cleanupStaleParentTags() {
     // Remove tag if it has no children
     execCommand(`git tag -d ${tag}`);
   });
+}
+
+/**
+ * Cleans up orphaned stale parent tags
+ * A stale tag is orphaned if the branch it references no longer exists
+ */
+export function cleanupOrphanedStaleTags() {
+  try {
+    // Get all stale parent tags
+    const staleTags = execCommand('git tag | grep "^bbranch-stale-"').split('\n').filter(tag => tag);
+    
+    staleTags.forEach(tag => {
+      const parsed = parseStaleParentTag(tag);
+      if (!parsed) return;
+      
+      // Check if the branch still exists
+      try {
+        execCommand(`git rev-parse --verify refs/heads/${parsed.branchName}`);
+        // Branch exists, keep the tag
+      } catch {
+        // Branch doesn't exist, remove the stale tag
+        try {
+          execCommand(`git tag -d ${tag}`);
+        } catch {
+          // Ignore errors if tag already deleted
+        }
+      }
+    });
+  } catch {
+    // No stale tags found or other error - ignore
+  }
 }

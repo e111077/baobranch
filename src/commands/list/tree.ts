@@ -3,7 +3,8 @@
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { execCommand } from "../../utils.js";
 import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
-import { makeMergeBaseTag, retagMergeBase } from "../../tags/merge-base-master.js";
+import { makeMergeBaseTag } from "../../tags/merge-base-master.js";
+import { cleanupTags } from "../../tags/cleanup.js";
 import { makeSplitBranchTag } from "../../tags/split-branch.js";
 
 /**
@@ -13,7 +14,7 @@ function handler(options: ArgumentsCamelCase<ListTreeOptions>): void {
   try {
     // Force Git to use colors even when output is not a terminal
     process.env.FORCE_COLOR = '1';
-    retagMergeBase();
+    cleanupTags();
     cleanupStaleParentTags();
     const masterOrMainBranch = execCommand('git branch --list main') ? 'main' : 'master';
     const format = options.simple ? '--format="%h%C(auto)%d"' : '';
