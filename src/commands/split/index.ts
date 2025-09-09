@@ -146,7 +146,7 @@ export async function splitImpl(options: SplitOptions) {
       chosenDirs = await inquirer.prompt([{
         type: 'checkbox',
         name: 'dirs',
-        message: `${keys.length} splits found. Select directories to split into their own commits.`,
+        message: `Select directories to include in splitting`,
         choices: [
           ...keys.map((dir, i) => ({
             name: `${i + 1}. ${`${dir
@@ -167,6 +167,78 @@ export async function splitImpl(options: SplitOptions) {
   if (!chosenDirs.dirs.length) {
     console.error('No directories selected. Exiting.');
     process.exit(0);
+  }
+
+  // Build final groups for commits
+  let finalGroups: string[][] = [];
+  if (options.yesToAll) {
+    // yes-to-all: skip prompts; one group per included dir
+    finalGroups = chosenDirs.dirs.map(d => [d]);
+  } else {
+    // Merge-intent step
+    let wantsMerge = false;
+    try {
+      const { merge } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'merge',
+        message: `Merge any of the selected directories into combined commits?`,
+        default: false
+      }]);
+      wantsMerge = merge;
+    } catch {
+      console.error('Cancelling split.');
+      process.exit(1);
+    }
+
+    if (!wantsMerge) {
+      // Proceed with singles only
+      finalGroups = chosenDirs.dirs.map(d => [d]);
+    } else {
+      // Iterative grouping rounds
+      const remainingDirs: string[] = [...chosenDirs.dirs];
+      const mergeGroups: string[][] = [];
+
+      while (remainingDirs.length > 0) {
+        let selection: string[] = [];
+        try {
+          const result = await inquirer.prompt([{
+            type: 'checkbox',
+            name: 'selected',
+            message: `Select 2 or more directories to merge into a single commit group. Leave empty to finish.`,
+            choices: remainingDirs.map((dir, i) => ({
+              name: `${i + 1}. ${`${dir
+                .replace('__nomatch__', `Non-matching files`)
+                .replace('__root__', `Files at root of "${fileSplitter}"`)}`
+                } (${dirToFiles.get(dir)!.length} files)`,
+              value: dir
+            }))
+          }]);
+          selection = result.selected as string[];
+        } catch {
+          console.error('Cancelling split.');
+          process.exit(1);
+        }
+
+        if (selection.length === 0) {
+          // Finish grouping; remaining become singles
+          break;
+        }
+        if (selection.length === 1) {
+          // Validation: must be at least 2
+          console.log('Please select at least 2 directories to create a merged group.');
+          continue;
+        }
+
+        // Register this group and remove from remaining
+        mergeGroups.push(selection);
+        for (const s of selection) {
+          const idx = remainingDirs.indexOf(s);
+          if (idx !== -1) remainingDirs.splice(idx, 1);
+        }
+      }
+
+      finalGroups = [...mergeGroups, ...remainingDirs.map(d => [d])];
+    }
   }
 
   const doesEmptyRootBranchExist = doesBranchExist(emptyRootBranchName);
@@ -193,7 +265,7 @@ export async function splitImpl(options: SplitOptions) {
     await clean(emptyRootBranchName, false);
   }
 
-  console.log(`Creating ${chosenDirs.dirs.length} new commits from ${sourceBranch}`);
+  console.log(`Creating ${finalGroups.length} new commits from ${sourceBranch}`);
 
   // Switch to parent branch, create an empty branch commit in which to create
   // split children branch commits
@@ -254,19 +326,52 @@ This PR is manually generated with [baobranch](https://www.npmjs.com/package/bao
     }
   }
 
-  for (const dir of chosenDirs.dirs) {
-    const files = dirToFiles.get(dir)!;
-    const branchName = `${sourceBranch}--split--${dir}`;
+  // Helper functions for grouping and labels
+  function toDisplayLabel(group: string[], fileSplitter: string): string {
+    return group.map(p => {
+      if (p === '__root__') return `Files at root of "${fileSplitter}"`;
+      if (p === '__nomatch__') return 'Non-matching files';
+      return p;
+    }).join(' + ');
+  }
 
-    execCommand(`git add ${files.join(' ')}`, true);
+  function toBranchSuffix(group: string[]): string {
+    const sanitize = (p: string) => p
+      .replaceAll('/', '__')
+      .replace(/ /g, '_');
+    return group.map(p => {
+      if (p === '__root__') return 'root';
+      if (p === '__nomatch__') return 'nomatch';
+      return sanitize(p);
+    }).join('__');
+  }
 
-    const displayedDir = dir
-      .replace('__nomatch__', 'non-matching files')
-      .replace('__root__', `${fileSplitter}`);
+  function getGroupFiles(group: string[], dirToFiles: Map<string, string[]>): string[] {
+    const out: string[] = [];
+    for (const key of group) {
+      const files = dirToFiles.get(key) ?? [];
+      for (const f of files) out.push(f);
+    }
+    return out;
+  }
+
+  for (const group of finalGroups) {
+    const files = getGroupFiles(group, dirToFiles);
+    const quoted = files.map(f => `'${f.replaceAll("'", "'\\''")}'`).join(' ');
+    if (quoted.length) {
+      // Quote each path and use `--` to safely separate from options
+      execCommand(`git add -- ${quoted}`, true);
+    }
+
+    const displayed = toDisplayLabel(group, fileSplitter);
+    const suffix = toBranchSuffix(group);
+    const branchName = `${sourceBranch}--split--${suffix}`;
+
+    const commitMessage = message.replaceAll(/\{\{\s*BB_DIRECTORY\s*\}\}/g, displayed);
 
     commitImpl({
       branch: branchName,
-      message: message.replaceAll(/\{\{\s*?BB_DIRECTOR\s*?\}\}/g, displayedDir)
+      message: commitMessage
     });
 
     console.log(`Successfully created branch ${branchName} with ${files.length} changes.`);
@@ -376,7 +481,8 @@ export const split = {
   describe: 'Split the current commit at HEAD into multiple commits based on ' +
     'the start of a filepath. e.g. given a fileSplitter of src/ a commit with ' +
     'changes to src/commands/commit.ts and src/commands/split/index.ts would be ' +
-    'split into two commits, one for each directory.',
+    'split into two commits, one for each directory. It then allows you to selectively' +
+    ' choose which directories to combine into a single commit.',
   builder: (yargs: Argv) =>
     yargs
       .positional('fileSplitter', {
