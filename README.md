@@ -521,11 +521,21 @@ bb push all
 
 #### Push the current branch-commit and all direct descendants
 
-Pushes the current branch-commit and all of its non-orphaned descendants to the remote.
+Pushes the current branch-commit and all of its non-orphaned descendants to the remote using dependency-aware parallelism. Parents are pushed before children. Ready branches may push concurrently up to a configurable limit.
+
+Default concurrency (`-j 8`):
 
 ```bash
 bb push chain
 ```
+
+Custom concurrency:
+
+```bash
+bb push chain -j 4
+```
+
+Failure policy: if a parent push fails, all of its descendants are skipped. Other ready branches continue.
 
 ### Synchronizing with remotes
 
