@@ -2,6 +2,7 @@ import type { ArgumentsCamelCase, CommandModule } from 'yargs';
 import type { FormatOptions } from "./options";
 import { execCommand, getBranchListAnnotations } from '../../utils.js';
 import { findChildren } from '../../tree-nav/children.js';
+import { createPrTerminalLink } from '../../github-helpers/links.js';
 
 async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
@@ -16,13 +17,15 @@ async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
     const notes = getBranchListAnnotations(child);
     switch (argv.format) {
       case 'pr':
-        return `#${notes.prNumber || '(none)'}${notes.annotations}`;
+        return notes.prNumber ?
+          `${createPrTerminalLink(notes.prNumber)}${notes.annotations}` :
+          `#(none)${notes.annotations}`;
       case 'branch':
         return `${child.branchName}${notes.annotations}`;
       case 'both':
       default:
         return notes.prNumber ?
-          `${child.branchName}#${notes.prNumber}${notes.annotations}` :
+          `${child.branchName}${createPrTerminalLink(notes.prNumber)}${notes.annotations}` :
           `${child.branchName}${notes.annotations}`;
     }
   });

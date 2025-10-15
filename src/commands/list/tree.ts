@@ -6,6 +6,7 @@ import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
 import { makeMergeBaseTag } from "../../tags/merge-base-master.js";
 import { cleanupTags } from "../../tags/cleanup.js";
 import { makeSplitBranchTag } from "../../tags/split-branch.js";
+import { createPrTerminalLink } from "../../github-helpers/links.js";
 
 /**
  * Prints a visual tree representation of the Git branch structure with colors
@@ -61,6 +62,11 @@ fi`);
     if (!options.showRemotes) {
       tree = tree.replaceAll(originRegex, '');
     }
+
+    // Linkify PR numbers in commit messages (e.g., #123456)
+    tree = tree.replace(/#(\d+)/g, (_match, prNum) => {
+      return createPrTerminalLink(parseInt(prNum, 10));
+    });
 
     console.log(tree);
   } catch (error) {

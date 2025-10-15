@@ -21,3 +21,20 @@ function getGithubUrl(): string {
 export function createPrLink(branch: string, prNum: number): string {
   return prNum ? `[#${prNum}](${getGithubUrl()}/pull/${prNum})` : branch;
 }
+
+/**
+ * Creates a terminal hyperlink using OSC 8 sequences
+ * This format is supported by modern terminals and creates clickable links
+ * @see https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+ */
+export function createTerminalLink(text: string, url: string): string {
+  return `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`;
+}
+
+/**
+ * Creates a terminal hyperlink to a PR using OSC 8 sequences
+ */
+export function createPrTerminalLink(prNum: number): string {
+  const url = `${getGithubUrl()}/pull/${prNum}`;
+  return createTerminalLink(`#${prNum}`, url);
+}
