@@ -7,7 +7,7 @@ import type { Argv, CommandModule } from "yargs";
 import { buildGraph } from "../../tree-nav/graph.js";
 import { getTableStr, upsertPrDescription } from '../../github-helpers/comment.js'
 import { getPrNumber, getPrStatus, updateBaseBranch } from '../../github-helpers/pr.js'
-import { createPrLink } from '../../github-helpers/links.js'
+import { createPrTerminalLink } from '../../github-helpers/links.js'
 import type { Branch } from "../../utils";
 import inquirer from "inquirer";
 import { execSync } from "child_process";
@@ -77,7 +77,7 @@ async function syncPrImpl(options: { chain?: boolean }) {
   console.log('\nThe following PRs will have their base branches and descriptions updated:');
   for (const branch of prsToUpdate) {
     const prNumber = prToNumber.get(branch)!;
-    console.log(`  ${branch.branchName}${createPrLink(branch.branchName, prNumber).replace(/\[(.+)\]/, '$1 ')}`);
+    console.log(`  ${branch.branchName}${createPrTerminalLink(prNumber)}`);
   }
 
   const { confirm } = await inquirer.prompt([{
@@ -110,7 +110,7 @@ async function syncPrImpl(options: { chain?: boolean }) {
 
       const prNumber = prToNumber.get(branch)!;
 
-      console.log(`Updating PR: ${branch.branchName}#${prNumber}...`);
+      console.log(`Updating PR: ${branch.branchName}${createPrTerminalLink(prNumber)}...`);
 
       // Update PR description with relationship table
       await upsertPrDescription(prNumber, tableStr);
@@ -128,11 +128,11 @@ async function syncPrImpl(options: { chain?: boolean }) {
       }
 
       if (success) {
-        console.log(`PR ${prNumber} updated.`);
+        console.log(`PR ${createPrTerminalLink(prNumber)} updated.`);
         return;
       }
 
-      console.log(`Base branch (${branch.parent!.branchName}) not found. PR ${prNumber} base branch set to main.`);
+      console.log(`Base branch (${branch.parent!.branchName}) not found. PR ${createPrTerminalLink(prNumber)} base branch set to main.`);
       return;
     });
 
