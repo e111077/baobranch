@@ -20,10 +20,10 @@ import { getParentBranch } from "./parent.js";
  * @returns {Branch} The root branch of the hierarchy
  *
  * @example
- * const root = findRootBranch('feature-123');
+ * const root = await findRootBranch('feature-123');
  * // Returns root branch (usually main/master) with full branch hierarchy
  */
-export function findRootBranch(branchName: string, currentBranch?: Branch): Branch {
+export async function findRootBranch(branchName: string, currentBranch?: Branch): Promise<Branch> {
   // Create new branch object if none provided
   const branch = currentBranch ?? {
     branchName,
@@ -34,7 +34,7 @@ export function findRootBranch(branchName: string, currentBranch?: Branch): Bran
   };
 
   // Get and set parent branch
-  const parent = getParentBranch(branchName);
+  const parent = await getParentBranch(branchName);
   branch.parent = parent;
   branch.orphaned = parent.stale;
 
@@ -46,5 +46,5 @@ export function findRootBranch(branchName: string, currentBranch?: Branch): Bran
   }
 
   // Recursively find root branch
-  return findRootBranch(parent.branchName, parent);
+  return await findRootBranch(parent.branchName, parent);
 }

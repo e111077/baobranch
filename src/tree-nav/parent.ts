@@ -1,15 +1,16 @@
 import { makeMergeBaseTag } from "../tags/merge-base-master.js";
 import { cleanupTags } from "../tags/cleanup.js";
 import { makeStaleParentTag, parseStaleParentTag } from "../tags/stale.js";
-import { execCommand, type Branch } from "../utils.js";
+import { execCommandAsync, logger, type Branch } from "../utils.js";
 
 /**
  * Determines the parent branch of a given branch
  * Handles both regular parents and stale parents (tagged with stale-parent)
  */
-export function getParentBranch(branchNameOrCommit: string): Branch {
-  const parentCommit = execCommand(`git rev-parse ${branchNameOrCommit}^`);
-  let parentBranchName = execCommand(`git branch --format="%(refname:short)" --points-at ${parentCommit}`)
+export async function getParentBranch(branchNameOrCommit: string): Promise<Branch> {
+  const parentCommit = await execCommandAsync(`git rev-parse ${branchNameOrCommit}^`);
+  logger.debug(`getParentBranch called with: "${branchNameOrCommit}"`);
+  let parentBranchName = (await execCommandAsync(`git branch --format="%(refname:short)" --points-at ${parentCommit}`))
       .replace(/\(HEAD detached at .+\)/, '')
       .trim();
 
@@ -25,15 +26,25 @@ export function getParentBranch(branchNameOrCommit: string): Branch {
 
   cleanupTags();
 
+  logger.debug(`No direct parent branch found for commit: ${parentCommit}`);
   // Check for stale parent tags
-  const staleTag = execCommand(`git tag --points-at ${parentCommit} | grep -E '^${makeStaleParentTag('.+?', '.+?')}$'`);
+  const [staleTag, mergeBaseParent, mainOrMaster] = await Promise.all([
+  (() => {
+    logger.debug(`Checking for stale parent tags pointing at commit: ${parentCommit}`);
+    return execCommandAsync(`git tag --points-at ${parentCommit} | grep -E '^${makeStaleParentTag('.+?', '.+?')}$'`)
+  })(),
+  (() => {
+    logger.debug(`Checking for merge-base tags pointing at commit: ${parentCommit}`);
+    return execCommandAsync(`git tag --points-at ${parentCommit} | grep -E '^${makeMergeBaseTag('.+?')}$'`);
+  })(),
+    await execCommandAsync('git branch --list main') ? 'main' : 'master',
+  ]);
   const staleParentBranch = parseStaleParentTag(staleTag)?.branchName;
-  const mergeBaseParent = execCommand(`git tag --points-at ${parentCommit} | grep -E '^${makeMergeBaseTag('.+?')}$'`);
-  const mainOrMaster = execCommand('git branch --list main') ? 'main' : 'master';
   parentBranchName = staleParentBranch ?? (mergeBaseParent ? mainOrMaster : '');
 
   if (!parentBranchName) {
-    return getParentBranch(parentCommit);
+    logger.debug('No stale or merge-base parent tags found.');
+    return await getParentBranch(parentCommit);
   }
 
   return {

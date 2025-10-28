@@ -32,7 +32,7 @@ import type { EvolveOptions } from "./options.js";
 export async function evolveSelfImpl(options: ArgumentsCamelCase<EvolveOptions>) {
     // Get current branch name
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-    const parent = getParentBranch(currentBranch);
+    const parent = await getParentBranch(currentBranch);
     const flag = options.continue ? 'continue' : options.abort ? 'abort' : null;
 
     await rebaseImpl({ from: currentBranch, to: parent.branchName, flag });

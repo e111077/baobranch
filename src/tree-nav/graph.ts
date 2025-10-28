@@ -55,12 +55,12 @@ export async function buildGraph() {
   const rootBranches = new Map<string, Branch>();
 
   // Find root branches for all branches
-  allBranches.forEach(branchName => {
-    const rootBranch = findRootBranch(branchName);
+  await Promise.all(allBranches.map(async (branchName) => {
+    const rootBranch = await findRootBranch(branchName);
     if (!rootBranches.has(rootBranch.branchName)) {
       rootBranches.set(rootBranch.branchName, rootBranch);
     }
-  });
+  }));
 
   const allNodes = new Map<string, Branch>();
   allNodes.set(root.branchName, root);

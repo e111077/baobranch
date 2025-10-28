@@ -1,7 +1,7 @@
 import { makeMergeBaseTag } from "../tags/merge-base-master.js";
 import { makeStaleParentTag } from "../tags/stale.js";
 import { getParentBranch } from "./parent.js";
-import { execCommand, type Branch } from "../utils.js";
+import { execCommand, execCommandAsync, logger, type Branch } from "../utils.js";
 
 /**
  * Formats the output of git branch --contains into a Set of branch names
@@ -25,37 +25,45 @@ function formatBranchContains(containsOutput: string, branchName: string) {
 export async function findChildren(parentBranchName: string): Promise<Branch[]> {
   // Find all possible children (branches that contain the parent commit)
   const parentCommit = execCommand(`git rev-parse ${parentBranchName}`);
+  logger.debug(`\nfindChildren called with: "${parentBranchName}"`);
+  logger.debug(`Resolved to commit: ${parentCommit}`);
+
   const possibleCurrentChildren = formatBranchContains(
     execCommand(`git branch --contains ${parentCommit}`),
     parentBranchName
   );
+  logger.debug(`Possible children found: ${Array.from(possibleCurrentChildren).join(', ') || '(none)'}`);
 
   // Find additional possible children from stale tags
   const additionalPossibleChildren = new Set<string>();
   
   try {
     const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n').filter(tag => tag);
-    
-    staleTags.forEach(tag => {
-      const tagCommit = execCommand(`git rev-parse ${tag}`);
+    logger.debug(`Stale tags found for parent "${parentBranchName}": ${staleTags.join(', ') || '(none)'}`);
+
+    await Promise.all(staleTags.map(async tag => {
+      logger.debug(`Processing stale tag: ${tag}`);
+      const tagCommit = await execCommandAsync(`git rev-parse ${tag}`);
       const children = formatBranchContains(
-        execCommand(`git branch --contains ${tagCommit}`),
+        await execCommandAsync(`git branch --contains ${tagCommit}`),
         parentBranchName
       );
       children.forEach(child => additionalPossibleChildren.add(child));
-    });
+    }));
 
     // For master/main, also check merge-base tags
     if (parentBranchName === 'master' || parentBranchName === 'main') {
+      logger.debug(`Parent is "${parentBranchName}", checking merge-base tags as well.`);
       const staleMergeBaseTags = execCommand(`git tag | grep -E '^${makeMergeBaseTag('[0-9]+')}$'`).split('\n').filter(tag => tag);
-      staleMergeBaseTags.forEach(tag => {
-        const tagCommit = execCommand(`git rev-parse ${tag}`);
+      await Promise.all(staleMergeBaseTags.map(async (tag) => {
+        logger.debug(`Processing merge-base tag: ${tag}`);
+        const tagCommit = await execCommandAsync(`git rev-parse ${tag}`);
         const children = formatBranchContains(
-          execCommand(`git branch --contains ${tagCommit}`),
+          await execCommandAsync(`git branch --contains ${tagCommit}`),
           parentBranchName
         );
         children.forEach(child => additionalPossibleChildren.add(child));
-      });
+      }));
     }
   } catch {
     // Ignore errors from stale tag processing
@@ -63,18 +71,42 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
 
   // Combine all possible children and check their parents in parallel
   const allPossibleChildren = new Set([...possibleCurrentChildren, ...additionalPossibleChildren]);
-  
+
+  // Cache to avoid redundant getParentBranch calls for children with same immediate parent
+  const parentBranchCache = new Map<string, Promise<Branch>>();
+
   const parentChecks = Array.from(allPossibleChildren).map(async (child) => {
     try {
-      // getParentBranch can be slow so parallelization is important
-      const childParent = getParentBranch(child);
+      logger.debug(`Determining parent for possible child: ${child}`);
+      const childImmediateParentCommit = await execCommandAsync(`git rev-parse ${child}^`);
+
+      // Check cache to avoid redundant getParentBranch calls
+      if (!parentBranchCache.has(childImmediateParentCommit)) {
+        logger.debug(`Cache miss for commit ${childImmediateParentCommit}, calling getParentBranch`);
+        parentBranchCache.set(childImmediateParentCommit, getParentBranch(child));
+      } else {
+        logger.debug(`Cache hit for commit ${childImmediateParentCommit}, reusing result`);
+      }
+
+      const childParent = await parentBranchCache.get(childImmediateParentCommit)!;
+      const childParentCommit = await execCommandAsync(`git rev-parse ${childParent.branchName}`);
+
+      logger.debug(`Checking child: ${child}`);
+      logger.debug(`  - Immediate parent commit: ${childImmediateParentCommit}`);
+      logger.debug(`  - getParentBranch returned: ${childParent.branchName} (stale: ${childParent.stale})`);
+      logger.debug(`  - Parent branch resolves to commit: ${childParentCommit}`);
+      logger.debug(`  - Match with parentCommit ${parentCommit}? ${childParentCommit === parentCommit}`);
+      logger.debug(`  - Immediate parent matches? ${childImmediateParentCommit === parentCommit}`);
+
       return {
         child,
         parent: childParent.branchName,
+        parentCommit: childParentCommit,
+        immediateParentCommit: childImmediateParentCommit,
         isStale: childParent.stale
       };
     } catch {
-      return { child, parent: null, isStale: false };
+      return { child, parent: null, parentCommit: null, immediateParentCommit: null, isStale: false };
     }
   });
 
@@ -83,8 +115,8 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
   const currentChildren = new Set<string>();
   const orphanedChildren = new Set<string>();
   
-  parentResults.forEach(({ child, parent, isStale }) => {
-    if (parent === parentBranchName) {
+  parentResults.forEach(({ child, immediateParentCommit, isStale }) => {
+    if (immediateParentCommit === parentCommit) {
       if (isStale) {
         orphanedChildren.add(child);
       } else {
@@ -92,6 +124,10 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
       }
     }
   });
+
+  logger.debug(`\nResults:`);
+  logger.debug(`  - Current children: ${Array.from(currentChildren).join(', ') || '(none)'}`);
+  logger.debug(`  - Orphaned children: ${Array.from(orphanedChildren).join(', ') || '(none)'}\n`);
 
   // Build branch objects for both current and orphaned children
   const children: Branch[] = [];

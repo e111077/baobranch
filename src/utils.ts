@@ -147,3 +147,55 @@ export function getBranchListAnnotations(branch: Branch) {
     annotations: joinedAnnotations ? ` (${joinedAnnotations})` : '',
   }
 };
+
+/**
+ * Global verbose logging state
+ */
+let verboseEnabled = false;
+
+/**
+ * Sets the global verbose logging state
+ * @param value - Whether verbose logging should be enabled
+ */
+export function setVerbose(value: boolean): void {
+  verboseEnabled = value;
+}
+
+/**
+ * Centralized logger with support for verbose mode
+ */
+export const logger = {
+  /**
+   * Logs debug messages only when verbose mode is enabled
+   * @param message - The message to log
+   */
+  debug(message: string): void {
+    if (verboseEnabled) {
+      console.log(`[DEBUG] ${message}`);
+    }
+  },
+
+  /**
+   * Logs info messages (always shown)
+   * @param message - The message to log
+   */
+  info(message: string): void {
+    console.log(message);
+  },
+
+  /**
+   * Logs warning messages (always shown)
+   * @param message - The message to log
+   */
+  warn(message: string): void {
+    console.warn(message);
+  },
+
+  /**
+   * Logs error messages (always shown)
+   * @param message - The message to log
+   */
+  error(message: string): void {
+    console.error(message);
+  }
+};

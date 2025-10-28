@@ -117,7 +117,7 @@ async function syncPrImpl(options: { chain?: boolean }) {
 
       // Sometimes the parent is different for the basebranch like with split branches
       // we want to point to the parent of the root not to the empty commit itself
-      const baseBranch = getBaseBranch(branch);
+      const baseBranch = await getBaseBranch(branch);
 
       let success = false;
 
@@ -148,7 +148,7 @@ async function syncPrImpl(options: { chain?: boolean }) {
  * @param branch The branch to parse
  * @returns The branch the PR should be pointing to as a parent
  */
-function getBaseBranch(branch: Branch) {
+async function getBaseBranch(branch: Branch) {
   const parent = branch.parent;
 
   if (!parent) {
@@ -159,7 +159,7 @@ function getBaseBranch(branch: Branch) {
   const splitBranchTag = tags.find(tag => isSplitBranchTag(tag));
 
   if (splitBranchTag) {
-    return getParentBranch(parent.branchName);
+    return await getParentBranch(parent.branchName);
   }
 
   return parent;

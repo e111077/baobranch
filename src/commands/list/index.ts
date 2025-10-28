@@ -10,7 +10,7 @@ import { createPrTerminalLink } from '../../github-helpers/links.js';
 
 async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const branchName = execCommand('git rev-parse --abbrev-ref HEAD');
-  const parent = getParentBranch(branchName);
+  const parent = await getParentBranch(branchName);
   const children = await findChildren(parent.branchName);
   const branch = children.find(child => child.branchName === branchName)!;
   const notes = getBranchListAnnotations(branch);

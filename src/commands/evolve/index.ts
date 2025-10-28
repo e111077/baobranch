@@ -68,10 +68,27 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
   // Handle new evolution
   await tagEvolveBranches(initialBranch, options.scope);
 
+  // Determine rebase target when evolving from HEAD/main/master
+  const isMasterOrMain = initialBranch === 'master' || initialBranch === 'main';
+  const isBranchlessHead = initialBranch === 'HEAD';
+  let explicitRebaseTarget: string | undefined;
+
+  if (isMasterOrMain || isBranchlessHead) {
+    try {
+      const parent = await getParentBranch('HEAD');
+      explicitRebaseTarget = parent.branchName;
+      console.log(`Child branches will be rebased onto: ${parent.branchName}${parent.stale ? ' (stale reference)' : ''}`);
+    } catch {
+      // If we can't determine parent, let each branch find its own parent
+      console.log('Could not determine parent branch; each branch will find its own parent');
+    }
+  }
+
   await evolveChain({
     currentBranch: initialBranch,
     scope: options.scope,
-    flag: null
+    flag: null,
+    explicitRebaseTarget
   });
 
   execCommand(`git checkout ${initialBranch}`);
@@ -84,25 +101,37 @@ async function evolveImpl(options: ArgumentsCamelCase<EvolveOptions>) {
  * @param params.scope - The scope of evolution (full or directs)
  * @param params.flag - Optional flag for rebase operation
  * @param params.step - Current step in the evolution process
+ * @param params.explicitRebaseTarget - When set, child branches will be rebased onto this target instead of finding their own parent
  */
 async function evolveChain({
   currentBranch,
   scope,
   flag,
-  step = 0
+  step = 0,
+  explicitRebaseTarget
 }: {
   currentBranch: string;
   scope: 'full' | 'directs';
   flag: 'continue' | null;
   step?: number;
+  explicitRebaseTarget?: string;
 }): void {
   const isMasterOrMain = currentBranch === 'master' || currentBranch === 'main';
   const isBranchlessHead = currentBranch === 'HEAD';
+  const isInitialBranch = isMasterOrMain || isBranchlessHead;
 
-  const parent = flag === 'continue' ?
-    '' :
-    isMasterOrMain ? currentBranch :
-    getParentBranch(currentBranch).branchName;
+  // Determine the rebase target
+  let parent: string;
+  if (flag === 'continue') {
+    parent = '';
+  } else if (explicitRebaseTarget && !isInitialBranch) {
+    // Use explicit target for child branches when evolving from HEAD/main/master
+    parent = explicitRebaseTarget;
+  } else if (isMasterOrMain) {
+    parent = currentBranch;
+  } else {
+    parent = (await getParentBranch(currentBranch)).branchName;
+  }
 
   // don't do a rebase, just go to next branch if is master or main because we
   // never tag it as in-progress evolve
@@ -135,7 +164,8 @@ async function evolveChain({
     currentBranch: nextBranch,
     scope,
     flag: null,
-    step
+    step,
+    explicitRebaseTarget
   });
 }
 

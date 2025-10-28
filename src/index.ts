@@ -14,10 +14,21 @@ import { commit } from './commands/commit.js';
 import { sync } from './commands/sync/index.js';
 import { push } from './commands/push/index.js';
 import { split } from './commands/split/index.js';
+import { setVerbose } from './utils.js';
 
 const hideBin = (argv: string[]): string[] => argv.slice(2);
 
 yargs(hideBin(process.argv))
+  .option('verbose', {
+    alias: 'v',
+    type: 'boolean',
+    description: 'Enable verbose debug logging',
+    global: true,
+    default: false
+  })
+  .middleware((argv) => {
+    setVerbose(argv.verbose as boolean);
+  })
   .command({
     ...listTree,
     command: '*',

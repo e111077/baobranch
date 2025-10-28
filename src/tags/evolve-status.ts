@@ -7,6 +7,7 @@
 import inquirer from "inquirer";
 import { findChildren } from "../tree-nav/children.js";
 import { execCommand } from "../utils.js";
+import { getParentBranch } from "../tree-nav/parent.js";
 
 /**
  * Represents the current status of an evolve operation
@@ -58,12 +59,32 @@ export async function tagEvolveBranches(branch: string, scope: 'full' | 'directs
   let count = 0;
 
   if (shouldSkipCurrentBranch && queue.length) {
+    const currentCommit = execCommand('git rev-parse --short HEAD').trim();
+
+    // Determine what the branches will be rebased onto
+    let rebaseTarget: string;
+    let rebaseTargetDesc: string;
+    try {
+      const parent = await getParentBranch('HEAD');
+      if (parent.stale) {
+        rebaseTarget = `${parent.branchName} (stale reference)`;
+        rebaseTargetDesc = `stale reference to ${parent.branchName}`;
+      } else {
+        rebaseTarget = parent.branchName;
+        rebaseTargetDesc = `branch ${parent.branchName}`;
+      }
+    } catch {
+      // If we can't determine a parent, fall back to the current commit
+      rebaseTarget = currentCommit;
+      rebaseTargetDesc = `current commit ${currentCommit}`;
+    }
+
     const { confirm } = await inquirer.prompt([{
       type: 'confirm',
       name: 'confirm',
       message: `You are attempting to evolve from ${
         isBranchlessHead ? 'a HEAD without a branch': `the ${branch} branch`
-      } which will evolve the following branches and all their descendants:
+      } which will rebase the following branches (and all their descendants) onto the ${rebaseTargetDesc}:
 ${queue.join('\n')}
 
 Are you sure you want to continue?`,

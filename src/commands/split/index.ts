@@ -51,7 +51,7 @@ export async function splitImpl(options: SplitOptions) {
     process.exit(1);
   }
 
-  const parentBranch = getParentBranch(sourceBranch);
+  const parentBranch = await getParentBranch(sourceBranch);
 
   if (!parentBranch || !parentBranch.branchName) {
     console.error(`Unable to determine parent branch for ${sourceBranch}`);
@@ -454,7 +454,7 @@ async function publishSplitBranches(rootBranchName: string) {
   const postPush = async (branch: string) => {
     let baseBranch = rootBranchName;
     if (branch === rootBranchName) {
-      const parent = getParentBranch(branch);
+      const parent = await getParentBranch(branch);
       const mainOrMaster = execCommand('git branch --list main').toString().trim() ? 'main' : 'master';
       baseBranch = parent?.branchName ?? mainOrMaster;
     }

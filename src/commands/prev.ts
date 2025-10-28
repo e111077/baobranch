@@ -1,9 +1,9 @@
 import { type Command, execCommand } from "../utils.js";
 import { getParentBranch } from "../tree-nav/parent.js";
 
-function impl() {
+async function impl() {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const parent = getParentBranch(currentBranch);
+  const parent = await getParentBranch(currentBranch);
   execCommand(`git checkout ${parent.branchName}`);
 }
 

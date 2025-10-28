@@ -4,9 +4,9 @@ import { execCommand, getBranchListAnnotations } from "../../utils.js";
 import { getParentBranch } from "../../tree-nav/parent.js";
 import { createPrTerminalLink } from "../../github-helpers/links.js";
 
-function handler(argv: ArgumentsCamelCase<FormatOptions>) {
+async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-  const parent = getParentBranch(currentBranch);
+  const parent = await getParentBranch(currentBranch);
   const notes = getBranchListAnnotations(parent);
 
   switch (argv.format) {
