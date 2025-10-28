@@ -1,6 +1,6 @@
 import type { ArgumentsCamelCase, CommandModule } from "yargs";
 import type { FormatOptions } from "./options";
-import { execCommand, getBranchListAnnotations } from "../../utils.js";
+import { execCommand, getBranchListAnnotations, logger } from "../../utils.js";
 import { getParentBranch } from "../../tree-nav/parent.js";
 import { createPrTerminalLink } from "../../github-helpers/links.js";
 
@@ -12,19 +12,19 @@ async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   switch (argv.format) {
     case 'pr':
       if (notes.prNumber) {
-        console.log(`${createPrTerminalLink(notes.prNumber)}${notes.annotations}`);
+        logger.info(`${createPrTerminalLink(notes.prNumber)}${notes.annotations}`);
       } else {
-        console.log(`#${notes.annotations}`);
+        logger.info(`#${notes.annotations}`);
       }
       break;
     case 'branch':
-      console.log(parent.branchName + notes.annotations);
+      logger.info(parent.branchName + notes.annotations);
       break;
     case 'both':
       if (notes.prNumber) {
-        console.log(`${parent.branchName}${createPrTerminalLink(notes.prNumber)}${notes.annotations}`);
+        logger.info(`${parent.branchName}${createPrTerminalLink(notes.prNumber)}${notes.annotations}`);
       } else {
-        console.log(`${parent.branchName}${notes.annotations}`);
+        logger.info(`${parent.branchName}${notes.annotations}`);
       }
       break;
   }

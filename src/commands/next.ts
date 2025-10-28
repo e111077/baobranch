@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import { type Command, execCommand } from "../utils.js";
+import { type Command, execCommand, logger } from "../utils.js";
 import { findChildren } from "../tree-nav/children.js";
 
 /**
@@ -13,12 +13,12 @@ async function impl(): Promise<void> {
   const children = await findChildren(currentBranch);
 
   if (!children.length) {
-    console.log('No child branches found');
+    logger.info('No child branches found');
     return;
   }
 
   if (children.length === 1) {
-    console.log(execCommand(`git checkout ${children[0].branchName}`));
+    logger.info(execCommand(`git checkout ${children[0].branchName}`));
     return;
   }
 
@@ -40,9 +40,9 @@ async function impl(): Promise<void> {
   }
 
   try {
-    console.log(execCommand(`git checkout ${choice}`));
+    logger.info(execCommand(`git checkout ${choice}`));
   } catch (e: unknown) {
-    console.error((e as Error).message);
+    logger.error((e as Error).message);
   }
 }
 

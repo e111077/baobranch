@@ -6,7 +6,7 @@
 
 import inquirer from "inquirer";
 import { findChildren } from "../tree-nav/children.js";
-import { execCommand } from "../utils.js";
+import { execCommand, logger } from "../utils.js";
 import { getParentBranch } from "../tree-nav/parent.js";
 
 /**
@@ -21,19 +21,23 @@ import { getParentBranch } from "../tree-nav/parent.js";
  * @returns {EvolveStatus | null} The current evolve status or null if no evolve is in progress
  */
 export function getEvolveStatus(): { step: number, scope: 'self' | 'full' | 'directs' } | null {
+  logger.debug('getEvolveStatus: Checking for existing evolve tags');
   const evolveTags = execCommand(`git tag --list | grep -E "${generateEvolveTag('.+?', '.+?')}"`)
     .split('\n')
     .filter(Boolean);
 
   if (evolveTags.length === 0) {
+    logger.debug('getEvolveStatus: No evolve tags found');
     return null;
   }
 
+  logger.debug(`getEvolveStatus: Found ${evolveTags.length} evolve tags: ${evolveTags.join(', ')}`);
   const evolveNums = evolveTags
     .map(tag => parseEvolveTag(tag).step)
     .sort((a, b) => a - b);
   const scope = parseEvolveTag(evolveTags[0]).scope as 'self' | 'full' | 'directs';
 
+  logger.debug(`getEvolveStatus: Current evolve status - step: ${evolveNums[0]}, scope: ${scope}`);
   return { step: evolveNums[0], scope };
 }
 
@@ -44,18 +48,23 @@ export function getEvolveStatus(): { step: number, scope: 'self' | 'full' | 'dir
  * @throws Will exit process if evolve is in progress or if attempting to evolve main/master
  */
 export async function tagEvolveBranches(branch: string, scope: 'full' | 'directs') {
+  logger.debug(`tagEvolveBranches: Tagging branches for evolve, branch="${branch}", scope="${scope}"`);
+
   // Check if evolve is already in progress
   if (getEvolveStatus() !== null) {
-    console.error('Evolve currently in progress. Please complete or abort before starting a new one.');
+    logger.debug('tagEvolveBranches: Evolve already in progress');
+    logger.error('Evolve currently in progress. Please complete or abort before starting a new one.');
     process.exit(1);
   }
 
   const isMasterOrMain = branch === 'master' || branch === 'main';
   const isBranchlessHead = branch === 'HEAD';
   const shouldSkipCurrentBranch = isMasterOrMain || isBranchlessHead;
+  logger.debug(`tagEvolveBranches: shouldSkipCurrentBranch=${shouldSkipCurrentBranch}`);
 
   // Prevent evolving main/master branches, enqueue children instead
   let queue = shouldSkipCurrentBranch ? await enqueueQualifiedEvolveChildren(branch, scope, []) : [branch];
+  logger.debug(`tagEvolveBranches: Initial queue has ${queue.length} branches: ${queue.join(', ')}`);
   let count = 0;
 
   if (shouldSkipCurrentBranch && queue.length) {
@@ -92,20 +101,24 @@ Are you sure you want to continue?`,
     }]);
 
     if (!confirm) {
-      console.log('Evolve aborted');
+      logger.info('Evolve aborted');
       process.exit(0);
     }
   }
 
   // Process branches breadth-first
+  logger.debug('tagEvolveBranches: Processing branches breadth-first');
   while (queue.length) {
     const currentBranch = queue.shift()!;
-    execCommand(`git tag ${generateEvolveTag(count, scope)} ${currentBranch}`);
+    const tag = generateEvolveTag(count, scope);
+    logger.debug(`tagEvolveBranches: Tagging branch "${currentBranch}" with tag "${tag}"`);
+    execCommand(`git tag ${tag} ${currentBranch}`);
     count++;
 
     // Add child branches to queue based on scope
     await enqueueQualifiedEvolveChildren(currentBranch, scope, queue);
   }
+  logger.debug(`tagEvolveBranches: Finished tagging ${count} branches for evolve`);
 }
 
 /**
@@ -119,14 +132,22 @@ Are you sure you want to continue?`,
  * @returns The mutated queue
  */
 async function enqueueQualifiedEvolveChildren(branch: string, scope: 'full' | 'directs', queue: string[]) {
+  logger.debug(`enqueueQualifiedEvolveChildren: Finding children for branch "${branch}" with scope "${scope}"`);
   const children = await findChildren(branch);
+  logger.debug(`enqueueQualifiedEvolveChildren: Found ${children.length} children for "${branch}"`);
+
+  let addedCount = 0;
   children.forEach(child => {
     if (scope === 'directs' && child.orphaned) {
+      logger.debug(`enqueueQualifiedEvolveChildren: Skipping orphaned child "${child.branchName}" in directs scope`);
       return;
     }
+    logger.debug(`enqueueQualifiedEvolveChildren: Adding child "${child.branchName}" to queue`);
     queue.push(child.branchName);
+    addedCount++;
   });
 
+  logger.debug(`enqueueQualifiedEvolveChildren: Added ${addedCount} children to queue`);
   return queue;
 }
 
@@ -134,7 +155,9 @@ async function enqueueQualifiedEvolveChildren(branch: string, scope: 'full' | 'd
  * Removes all evolve-related tags from the repository
  */
 export function clearAllEvolveTags(): void {
+  logger.debug('clearAllEvolveTags: Clearing all evolve tags');
   execCommand(`git tag --list | grep -E '${generateEvolveTag('.+?', '.+?')}' | xargs git tag -d`);
+  logger.debug('clearAllEvolveTags: All evolve tags cleared');
 }
 
 /**

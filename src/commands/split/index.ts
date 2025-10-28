@@ -1,5 +1,5 @@
 import { type Argv, type CommandModule } from "yargs";
-import { execCommand, execCommandAsync } from "../../utils.js";
+import { execCommand, execCommandAsync, logger } from "../../utils.js";
 import { getParentBranch } from "../../tree-nav/parent.js";
 import { join as pathJoin, } from 'path';
 import { commitImpl } from '../commit.js'
@@ -14,12 +14,12 @@ export async function splitImpl(options: SplitOptions) {
   const sourceBranch = options.branch ?? originBranch;
 
   if (sourceBranch === 'main' || sourceBranch === 'master') {
-    console.error('Cannot split from main or master branch');
+    logger.error('Cannot split from main or master branch');
     process.exit(1);
   }
 
   if (!sourceBranch) {
-    console.error(`Unable to determine current branch: ${sourceBranch}`);
+    logger.error(`Unable to determine current branch: ${sourceBranch}`);
     process.exit(1);
   }
 
@@ -47,14 +47,14 @@ export async function splitImpl(options: SplitOptions) {
   }
 
   if (!sourceBranchExists) {
-    console.error(`Branch ${sourceBranch} does not exist`);
+    logger.error(`Branch ${sourceBranch} does not exist`);
     process.exit(1);
   }
 
   const parentBranch = await getParentBranch(sourceBranch);
 
   if (!parentBranch || !parentBranch.branchName) {
-    console.error(`Unable to determine parent branch for ${sourceBranch}`);
+    logger.error(`Unable to determine parent branch for ${sourceBranch}`);
     process.exit(1);
   }
 
@@ -82,7 +82,7 @@ export async function splitImpl(options: SplitOptions) {
   // Adds a / to the end of the fileSplitter if it doesn't already have one
   const fileSplitter = pathJoin(options.fileSplitter, '/');
 
-  // console.log(sourceBranch, fileSplitter, editedFiles);
+  // logger.info(sourceBranch, fileSplitter, editedFiles);
   for (const file of editedFiles) {
     // If the file splitter is '/' this will never match because the files in
     // git don't start with `/` so we have to specially handle it here
@@ -135,7 +135,7 @@ export async function splitImpl(options: SplitOptions) {
   const keys = [...dirToFiles.keys()];
 
   if (!keys.length) {
-    console.error(`No changes found in branch ${sourceBranch}. Exiting.`);
+    logger.error(`No changes found in branch ${sourceBranch}. Exiting.`);
     process.exit(1);
   }
 
@@ -159,13 +159,13 @@ export async function splitImpl(options: SplitOptions) {
         ]
       }]);
     } catch {
-      console.error('Cancelling split.');
+      logger.error('Cancelling split.');
       process.exit(1);
     }
   }
 
   if (!chosenDirs.dirs.length) {
-    console.error('No directories selected. Exiting.');
+    logger.error('No directories selected. Exiting.');
     process.exit(0);
   }
 
@@ -186,7 +186,7 @@ export async function splitImpl(options: SplitOptions) {
       }]);
       wantsMerge = merge;
     } catch {
-      console.error('Cancelling split.');
+      logger.error('Cancelling split.');
       process.exit(1);
     }
 
@@ -215,7 +215,7 @@ export async function splitImpl(options: SplitOptions) {
           }]);
           selection = result.selected as string[];
         } catch {
-          console.error('Cancelling split.');
+          logger.error('Cancelling split.');
           process.exit(1);
         }
 
@@ -225,7 +225,7 @@ export async function splitImpl(options: SplitOptions) {
         }
         if (selection.length === 1) {
           // Validation: must be at least 2
-          console.log('Please select at least 2 directories to create a merged group.');
+          logger.info('Please select at least 2 directories to create a merged group.');
           continue;
         }
 
@@ -258,14 +258,14 @@ export async function splitImpl(options: SplitOptions) {
     }
 
     if (!startOver) {
-      console.log('Exiting.');
+      logger.info('Exiting.');
       process.exit(0);
     }
 
     await clean(emptyRootBranchName, false);
   }
 
-  console.log(`Creating ${finalGroups.length} new commits from ${sourceBranch}`);
+  logger.info(`Creating ${finalGroups.length} new commits from ${sourceBranch}`);
 
   // Switch to parent branch, create an empty branch commit in which to create
   // split children branch commits
@@ -305,18 +305,18 @@ This PR is manually generated with [baobranch](https://www.npmjs.com/package/bao
       message = editor.run()
 
       if (editor.last_exit_status !== 0) {
-        console.log('The editor exited with a non-zero code, cancelling split.');
+        logger.info('The editor exited with a non-zero code, cancelling split.');
         return;
       }
     } catch (err: unknown) {
       if (err instanceof CreateFileError) {
-        console.log('Failed to create the temporary file. Cancelling split.');
+        logger.info('Failed to create the temporary file. Cancelling split.');
         return;
       } else if (err instanceof ReadFileError) {
-        console.log('Failed to read the temporary file. Cancelling split.');
+        logger.info('Failed to read the temporary file. Cancelling split.');
         return;
       } else if (err instanceof LaunchEditorError) {
-        console.log('Failed to launch your editor. Cancelling split.');
+        logger.info('Failed to launch your editor. Cancelling split.');
         return;
       }
 
@@ -374,7 +374,7 @@ This PR is manually generated with [baobranch](https://www.npmjs.com/package/bao
       message: commitMessage
     });
 
-    console.log(`Successfully created branch ${branchName} with ${files.length} changes.`);
+    logger.info(`Successfully created branch ${branchName} with ${files.length} changes.`);
 
     execCommand(`git checkout ${emptyRootBranchName}`, true);
   }
@@ -408,7 +408,7 @@ async function clean(emptyRootBranchName: string, checkBranchExists: boolean) {
     const branchExists = doesBranchExist(emptyRootBranchName);
 
     if (!branchExists) {
-      console.error(`Branch ${emptyRootBranchName} does not exist. Nothing to clean up. Exiting.`);
+      logger.error(`Branch ${emptyRootBranchName} does not exist. Nothing to clean up. Exiting.`);
       process.exit(1);
     }
   }
@@ -427,7 +427,7 @@ async function clean(emptyRootBranchName: string, checkBranchExists: boolean) {
     }]);
 
     if (!confirm) {
-      console.log('Exiting.');
+      logger.info('Exiting.');
       process.exit(0);
     }
   }
@@ -443,7 +443,7 @@ async function clean(emptyRootBranchName: string, checkBranchExists: boolean) {
 
 async function publishSplitBranches(rootBranchName: string) {
   if (!doesBranchExist(rootBranchName)) {
-    console.error(`Branch ${rootBranchName} does not exist. Exiting.`);
+    logger.error(`Branch ${rootBranchName} does not exist. Exiting.`);
     process.exit(1);
   }
 

@@ -5,14 +5,14 @@
  */
 
 import type { CommandModule } from "yargs";
-import { execCommand } from "../../utils.js";
+import { execCommand, logger } from "../../utils.js";
 
 /**
  * Pushes all branches forcefully to remote
  * @throws {Error} If git push command fails
  */
 function pushAllImpl() {
-  console.log(execCommand('git push --all -f'));
+  logger.info(execCommand('git push --all -f'));
 }
 
 /**

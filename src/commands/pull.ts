@@ -1,4 +1,4 @@
-import { execCommand, type Command } from "../utils.js";
+import { execCommand, type Command, logger } from "../utils.js";
 import { findChildren } from "../tree-nav/children.js";
 import { markStale } from '../tags/stale.js';
 
@@ -8,7 +8,7 @@ export const pull: Command = {
   impl: async () => {
     const currentCommit = execCommand('git rev-parse HEAD');
     const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
-    console.log(`Pulling updates for ${currentBranch}...`);
+    logger.info(`Pulling updates for ${currentBranch}...`);
 
     const children = await findChildren(currentBranch);
 
@@ -21,7 +21,7 @@ export const pull: Command = {
       }
 
     } catch (error) {
-      console.error((error as Error).message);
+      logger.error((error as Error).message);
       process.exit(1);
     }
   }

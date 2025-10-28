@@ -1,5 +1,5 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand } from '../utils.js';
+import { execCommand, logger } from '../utils.js';
 import inquirer from 'inquirer';
 import { markStale } from "../tags/stale.js";
 
@@ -46,14 +46,14 @@ async function amendImpl({
       });
 
       if (matchingFiles.length === 0) {
-        console.error(`No changes found for: ${filename}`);
+        logger.error(`No changes found for: ${filename}`);
         process.exit(1);
       }
 
       // If multiple matches and it's a directory query, confirm with user
       if (matchingFiles.length) {
-        console.log('Changes to amend:');
-        matchingFiles.forEach(file => console.log(`  ${file.status} ${file.path}`));
+        logger.info('Changes to amend:');
+        matchingFiles.forEach(file => logger.info(`  ${file.status} ${file.path}`));
 
         let confirm = true;
         if (!yesToAll) {
@@ -67,7 +67,7 @@ async function amendImpl({
         }
 
         if (!confirm) {
-          console.log('Aborting amend');
+          logger.info('Aborting amend');
           process.exit(0);
         }
       }
@@ -82,8 +82,8 @@ async function amendImpl({
       });
 
     } else {
-      console.log('Changes to amend:');
-      files.forEach(file => console.log(`  ${file.status} ${file.path}`));
+      logger.info('Changes to amend:');
+      files.forEach(file => logger.info(`  ${file.status} ${file.path}`));
 
       let confirm = true;
 
@@ -99,7 +99,7 @@ async function amendImpl({
       }
 
       if (!confirm) {
-        console.log('Aborting amend');
+        logger.info('Aborting amend');
         process.exit(0);
       }
 
@@ -112,12 +112,12 @@ async function amendImpl({
 
     // Amend the commit without changing the message
     execCommand('git commit --amend --no-edit --allow-empty', true);
-    console.log('Successfully amended changes to previous commit');
+    logger.info('Successfully amended changes to previous commit');
     markStale(currentCommit, currentBranch, true);
 
   } catch (error) {
     if (error instanceof Error) {
-      console.error('Error amending commit:', error.message);
+      logger.error('Error amending commit:', error.message);
     }
     process.exit(1);
   }

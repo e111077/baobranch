@@ -1,6 +1,6 @@
 import type { ArgumentsCamelCase, CommandModule } from 'yargs';
 import type { FormatOptions } from "./options";
-import { execCommand, getBranchListAnnotations } from '../../utils.js';
+import { execCommand, getBranchListAnnotations, logger } from '../../utils.js';
 import { findChildren } from '../../tree-nav/children.js';
 import { createPrTerminalLink } from '../../github-helpers/links.js';
 
@@ -9,7 +9,7 @@ async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
   const children = await findChildren(currentBranch);
 
   if (!children.length) {
-    console.log('No child branches found');
+    logger.info('No child branches found');
     return;
   }
 
@@ -30,7 +30,7 @@ async function handler(argv: ArgumentsCamelCase<FormatOptions>) {
     }
   });
 
-  console.log(output.join('\n'));
+  logger.info(output.join('\n'));
 }
 
 export const listChildren = {

@@ -6,7 +6,7 @@
 
 import type { Argv, CommandModule } from "yargs";
 import { syncPrs } from "./prs.js";
-import { execCommand, execCommandAsync } from "../../utils.js";
+import { execCommand, execCommandAsync, logger } from "../../utils.js";
 import { getPrStatus, getPrNumber } from '../../github-helpers/pr.js';
 
 /**
@@ -23,7 +23,7 @@ async function handler() {
   // Determine if repo uses main or master as primary branch
   const mainOrMaster = execCommand('git branch --list main') ? 'main' : 'master';
 
-  console.log(`Fetching changes from origin/${mainOrMaster}...`);
+  logger.info(`Fetching changes from origin/${mainOrMaster}...`);
 
   // Handle updating main/master branch based on current checkout state
   if (currentBranch === mainOrMaster) {
@@ -57,7 +57,7 @@ async function handler() {
     }
   }
 
-  console.log('Cleaning up merged and closed branches...');
+  logger.info('Cleaning up merged and closed branches...');
 
   const deletePromises: Promise<string>[] = [];
   // Delete branches that have merged or closed PRs
@@ -67,7 +67,7 @@ async function handler() {
 
   await Promise.all(deletePromises);
 
-  console.log('Sync complete.');
+  logger.info('Sync complete.');
 }
 
 /**

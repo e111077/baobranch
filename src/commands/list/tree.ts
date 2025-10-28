@@ -1,7 +1,7 @@
 // tree.ts
 
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
-import { execCommand } from "../../utils.js";
+import { execCommand, logger } from "../../utils.js";
 import { cleanupStaleParentTags, makeStaleParentTag } from '../../tags/stale.js'
 import { makeMergeBaseTag } from "../../tags/merge-base-master.js";
 import { cleanupTags } from "../../tags/cleanup.js";
@@ -68,9 +68,9 @@ fi`);
       return createPrTerminalLink(parseInt(prNum, 10));
     });
 
-    console.log(tree);
+    logger.info(tree);
   } catch (error) {
-    console.error('Error generating branch tree:', error);
+    logger.error('Error generating branch tree:', error);
   }
 }
 

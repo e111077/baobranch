@@ -9,14 +9,14 @@
 import type { ArgumentsCamelCase, Argv, CommandModule } from "yargs";
 import { pushAll } from "./all.js";
 import { pushChain } from "./chain.js";
-import { execCommand } from "../../utils.js";
+import { execCommand, logger } from "../../utils.js";
 
 /**
  * Default push handler that force pushes the current branch
  * @throws {Error} If git push fails
  */
 function handler() {
-  console.log(execCommand('git push -f'));
+  logger.info(execCommand('git push -f'));
 }
 
 /**

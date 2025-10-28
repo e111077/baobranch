@@ -1,5 +1,5 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand } from '../utils.js';
+import { execCommand, logger } from '../utils.js';
 import inquirer from 'inquirer';
 
 interface UnamendOptions {
@@ -30,14 +30,14 @@ async function unamendImpl({ filename }: UnamendOptions) {
       });
 
       if (matchingFiles.length === 0) {
-        console.error(`No files found in last commit matching: ${filename}`);
+        logger.error(`No files found in last commit matching: ${filename}`);
         process.exit(1);
       }
 
       // If multiple matches, confirm with user
       if (matchingFiles.length > 1) {
-        console.log('Multiple files match:');
-        matchingFiles.forEach(file => console.log(`  ${file.path}`));
+        logger.info('Multiple files match:');
+        matchingFiles.forEach(file => logger.info(`  ${file.path}`));
 
         const { confirm } = await inquirer.prompt([{
           type: 'confirm',
@@ -47,7 +47,7 @@ async function unamendImpl({ filename }: UnamendOptions) {
         }]);
 
         if (!confirm) {
-          console.log('Aborting unamend');
+          logger.info('Aborting unamend');
           process.exit(0);
         }
       }
@@ -55,19 +55,19 @@ async function unamendImpl({ filename }: UnamendOptions) {
       // Remove matching files from commit
       for (const file of matchingFiles) {
         execCommand(`git reset HEAD^ "${file.path}"`);
-        console.log(`Removed ${file.path} from last commit`);
+        logger.info(`Removed ${file.path} from last commit`);
       }
 
       // Amend the commit without the removed files
       execCommand('git commit --amend --no-edit --allow-empty', true);
     } else {
-      console.error('Please specify a file or directory to unamend');
+      logger.error('Please specify a file or directory to unamend');
       process.exit(1);
     }
 
   } catch (error) {
     if (error instanceof Error) {
-      console.error('Error unamending commit:', error.message);
+      logger.error('Error unamending commit:', error.message);
     }
     process.exit(1);
   }

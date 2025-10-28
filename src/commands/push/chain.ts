@@ -5,7 +5,7 @@
  */
 
 import type { Argv, CommandModule } from "yargs";
-import { execCommand, execCommandAsync } from "../../utils.js";
+import { execCommand, execCommandAsync, logger } from "../../utils.js";
 import { findChildren } from "../../tree-nav/children.js";
 
 /**
@@ -81,7 +81,7 @@ export async function pushChainImpl(options: PushChainOptions) {
       try {
         await execCommandAsync(`git push origin ${branch} -f`, true);
         pushed.push(branch);
-        console.log(`✔ Pushed ${branch}`);
+        logger.info(`✔ Pushed ${branch}`);
         if (options.postPush) {
           await options.postPush(branch);
         }
@@ -92,7 +92,7 @@ export async function pushChainImpl(options: PushChainOptions) {
       } catch (e) {
         failed.add(branch);
         const msg = e instanceof Error ? e.message : String(e);
-        console.error(`✖ Failed ${branch}: ${msg}`);
+        logger.error(`✖ Failed ${branch}: ${msg}`);
         // Do not schedule children on failure
       }
     }).catch(() => {
@@ -131,20 +131,20 @@ export async function pushChainImpl(options: PushChainOptions) {
   const failedList = Array.from(failed).sort((a, b) => a.localeCompare(b));
   const skippedList = Array.from(skipped).sort((a, b) => a.localeCompare(b));
 
-  console.log('Chain push operation complete\n');
-  console.log('Summary:');
-  console.log(`- Pushed (${pushed.length})`);
-  for (const b of pushed) console.log(`  - ${b}`);
+  logger.info('Chain push operation complete\n');
+  logger.info('Summary:');
+  logger.info(`- Pushed (${pushed.length})`);
+  for (const b of pushed) logger.info(`  - ${b}`);
   if (failedList.length) {
-    console.log(`- Failed (${failedList.length})`);
-    for (const b of failedList) console.log(`  - ${b}`);
+    logger.info(`- Failed (${failedList.length})`);
+    for (const b of failedList) logger.info(`  - ${b}`);
   }
   if (skippedList.length) {
-    console.log(`- Skipped due to parent failure (${skippedList.length})`);
-    for (const b of skippedList) console.log(`  - ${b}`);
+    logger.info(`- Skipped due to parent failure (${skippedList.length})`);
+    for (const b of skippedList) logger.info(`  - ${b}`);
   }
   if (!failedList.length && !skippedList.length) {
-    console.log(`- No failures or skipped descendants`);
+    logger.info(`- No failures or skipped descendants`);
   }
 
   execCommand(`git checkout ${startBranch}`);

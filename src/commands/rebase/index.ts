@@ -1,5 +1,5 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand } from "../../utils.js";
+import { execCommand, logger } from "../../utils.js";
 import { findChildren } from "../../tree-nav/children.js";
 import inquirer from 'inquirer';
 import { cleanupStaleParentTags, markStale } from '../../tags/stale.js';
@@ -43,13 +43,13 @@ export async function rebaseImpl(
     }]);
 
     if (!confirm) {
-      console.log('Rebase cancelled');
+      logger.info('Rebase cancelled');
       process.exit(0);
     }
   }
 
   // Perform the rebase
-  console.log(`Rebasing ${from} onto ${to}...`);
+  logger.info(`Rebasing ${from} onto ${to}...`);
   const children = await findChildren(from);
 
   try {
@@ -63,18 +63,18 @@ export async function rebaseImpl(
       markStale(fromCommit, from, hasNonOrphanedChildren);
     }
 
-    console.log('Rebase complete.');
+    logger.info('Rebase complete.');
   } catch (error: any) {
     // Mark as stale before showing error
     const hasNonOrphanedChildren = children.some(child => !child.orphaned);
     markStale(fromCommit, from, hasNonOrphanedChildren);
-    console.log('Rebase incomplete:');
+    logger.info('Rebase incomplete:');
 
     // Show clean git error output
     if (error.stderr) {
       process.stderr.write(error.stderr);
     } else {
-      console.error(error.message);
+      logger.error(error.message);
     }
     process.exit(1);
   }

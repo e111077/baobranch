@@ -3,7 +3,7 @@
  * Builds and manages the complete graph structure of Git branch relationships
  */
 
-import { execCommand, type Branch } from "../utils.js";
+import { execCommand, logger, type Branch } from "../utils.js";
 import { cleanupTags } from '../tags/cleanup.js';
 import { findRootBranch } from './find-root-branch.js';
 import { findChildren } from "./children.js";
@@ -31,15 +31,20 @@ import { findChildren } from "./children.js";
  * // }
  */
 export async function buildGraph() {
+  logger.debug('buildGraph: Starting to build branch graph');
+
   // Determine if repo uses main or master
   const masterOrMainBranch = execCommand('git branch --list main') ? 'main' : 'master';
+  logger.debug(`buildGraph: Using base branch: ${masterOrMainBranch}`);
 
   // Get all branches except main/master
   const allBranches = execCommand('git branch --format="%(refname:short)"')
     .split('\n')
     .filter(branchName => branchName !== masterOrMainBranch);
+  logger.debug(`buildGraph: Found ${allBranches.length} branches to process: ${allBranches.join(', ')}`);
 
   // Update merge base tags to track relationships
+  logger.debug('buildGraph: Cleaning up tags');
   cleanupTags();
 
   // Create root branch object
@@ -55,21 +60,27 @@ export async function buildGraph() {
   const rootBranches = new Map<string, Branch>();
 
   // Find root branches for all branches
+  logger.debug('buildGraph: Finding root branches for all branches');
   await Promise.all(allBranches.map(async (branchName) => {
     const rootBranch = await findRootBranch(branchName);
+    logger.debug(`buildGraph: Branch "${branchName}" has root "${rootBranch.branchName}"`);
     if (!rootBranches.has(rootBranch.branchName)) {
       rootBranches.set(rootBranch.branchName, rootBranch);
     }
   }));
+  logger.debug(`buildGraph: Found ${rootBranches.size} unique root branches`);
 
   const allNodes = new Map<string, Branch>();
   allNodes.set(root.branchName, root);
 
   // Build complete hierarchy by crawling children
+  logger.debug('buildGraph: Building complete hierarchy by crawling children');
   for (const rootBranch of rootBranches.values()) {
+    logger.debug(`buildGraph: Crawling children for root branch: ${rootBranch.branchName}`);
     await crawlChildren(root, rootBranch, allNodes);
   }
 
+  logger.debug(`buildGraph: Graph complete with ${allNodes.size} total nodes`);
   return {graph: root, allNodes};
 }
 
@@ -84,6 +95,7 @@ export async function buildGraph() {
  * crawlChildren(parentBranch, childBranch);
  */
 async function crawlChildren(parent: Branch, child: Branch, nameNodeMap: Map<string, Branch>) {
+  logger.debug(`crawlChildren: Processing child "${child.branchName}" for parent "${parent.branchName}"`);
   nameNodeMap.set(parent.branchName, parent);
   nameNodeMap.set(child.branchName, child);
   // Check if child already exists in parent's children
@@ -93,6 +105,7 @@ async function crawlChildren(parent: Branch, child: Branch, nameNodeMap: Map<str
 
   // Find all children of the current branch
   const grandChildren = await findChildren(child.branchName);
+  logger.debug(`crawlChildren: Found ${grandChildren.length} grandchildren for "${child.branchName}"`);
   child.parent = parent;
 
   // Recursively process all grandchildren

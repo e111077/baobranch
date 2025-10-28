@@ -3,7 +3,7 @@
  * Provides functionality to find the root branch in a branch hierarchy
  */
 
-import type { Branch } from "../utils";
+import { logger, type Branch } from "../utils.js";
 import { getParentBranch } from "./parent.js";
 
 /**
@@ -24,6 +24,8 @@ import { getParentBranch } from "./parent.js";
  * // Returns root branch (usually main/master) with full branch hierarchy
  */
 export async function findRootBranch(branchName: string, currentBranch?: Branch): Promise<Branch> {
+  logger.debug(`findRootBranch: Finding root for branch "${branchName}"`);
+
   // Create new branch object if none provided
   const branch = currentBranch ?? {
     branchName,
@@ -35,6 +37,7 @@ export async function findRootBranch(branchName: string, currentBranch?: Branch)
 
   // Get and set parent branch
   const parent = await getParentBranch(branchName);
+  logger.debug(`findRootBranch: Branch "${branchName}" has parent "${parent.branchName}" (stale: ${parent.stale})`);
   branch.parent = parent;
   branch.orphaned = parent.stale;
 
@@ -42,9 +45,11 @@ export async function findRootBranch(branchName: string, currentBranch?: Branch)
   if (!parent.branchName ||
       parent.branchName === 'master' ||
       parent.branchName === 'main') {
+    logger.debug(`findRootBranch: Reached root for "${branchName}": ${branch.branchName}`);
     return branch;
   }
 
   // Recursively find root branch
+  logger.debug(`findRootBranch: Continuing to search root, moving up to "${parent.branchName}"`);
   return await findRootBranch(parent.branchName, parent);
 }

@@ -1,7 +1,7 @@
 // commit.ts
 
 import type { CommandModule } from "yargs";;
-import { execCommand } from "../utils.js";
+import { execCommand, logger } from "../utils.js";
 import inquirer from "inquirer";
 
 interface CommitOptions {
@@ -41,7 +41,7 @@ export async function commitImpl(argv: CommitOptions) {
     if (error.stderr) {
       process.stderr.write(error.stderr);
     } else {
-      console.error(error.message);
+      logger.error(error.message);
     }
     process.exit(1);
   }
@@ -60,7 +60,7 @@ export async function commitImpl(argv: CommitOptions) {
     if (error.stderr) {
       process.stderr.write(error.stderr);
     } else {
-      console.error(error.message);
+      logger.error(error.message);
     }
     process.exit(1);
   }
