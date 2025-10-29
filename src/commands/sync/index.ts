@@ -57,15 +57,22 @@ async function handler() {
     }
   }
 
-  logger.info('Cleaning up merged and closed branches...');
+  if (branchesToDelete.size > 0) {
+    logger.info('Cleaning up merged and closed branches:');
+    branchesToDelete.forEach(branch => {
+      logger.info(`  - ${branch}`);
+    });
 
-  const deletePromises: Promise<string>[] = [];
-  // Delete branches that have merged or closed PRs
-  branchesToDelete.forEach(branch => {
-    deletePromises.push(execCommandAsync(`git branch -D ${branch}`));
-  });
+    const deletePromises: Promise<string>[] = [];
+    // Delete branches that have merged or closed PRs
+    branchesToDelete.forEach(branch => {
+      deletePromises.push(execCommandAsync(`git branch -D ${branch}`));
+    });
 
-  await Promise.all(deletePromises);
+    await Promise.all(deletePromises);
+  } else {
+    logger.info('No merged or closed branches to clean up.');
+  }
 
   logger.info('Sync complete.');
 }
