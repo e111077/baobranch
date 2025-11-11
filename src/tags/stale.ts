@@ -94,13 +94,23 @@ export function cleanupStaleParentTags() {
 
   staleTags.forEach(tag => {
     // Check if tag still has any child branches
-    const children = execCommand(`git branch --contains ${tag}`);
+    const childBranchStrings = execCommand(`git branch --contains ${tag}`);
 
-    if (children) {
+    const descendents = childBranchStrings
+        .split('\n')
+        .map((branch) => branch.trim().replace(/^\*\s*/, ''))
+        .filter((branch) =>
+          branch.length &&
+          branch !== 'master' &&
+          branch !== 'main' &&
+          !branch.startsWith('(HEAD detached at')
+        );
+
+    if (descendents.length) {
       return;
     }
 
-    // Remove tag if it has no children
+    // Remove tag if it has no descendents
     execCommand(`git tag -d ${tag}`);
   });
 }
@@ -113,11 +123,11 @@ export function cleanupOrphanedStaleTags() {
   try {
     // Get all stale parent tags
     const staleTags = execCommand('git tag | grep "^bbranch-stale-"').split('\n').filter(tag => tag);
-    
+
     staleTags.forEach(tag => {
       const parsed = parseStaleParentTag(tag);
       if (!parsed) return;
-      
+
       // Check if the branch still exists
       try {
         execCommand(`git rev-parse --verify refs/heads/${parsed.branchName}`);

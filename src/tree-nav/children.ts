@@ -36,7 +36,8 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
 
   // Find additional possible children from stale tags
   const additionalPossibleChildren = new Set<string>();
-  
+  const staleCommits = new Set<string>();
+
   try {
     const staleTags = execCommand(`git tag | grep -E '^${makeStaleParentTag(parentBranchName, '[0-9]+')}$'`).split('\n').filter(tag => tag);
     logger.debug(`Stale tags found for parent "${parentBranchName}": ${staleTags.join(', ') || '(none)'}`);
@@ -44,6 +45,7 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
     await Promise.all(staleTags.map(async tag => {
       logger.debug(`Processing stale tag: ${tag}`);
       const tagCommit = await execCommandAsync(`git rev-parse ${tag}`);
+      staleCommits.add(tagCommit);
       const children = formatBranchContains(
         await execCommandAsync(`git branch --contains ${tagCommit}`),
         parentBranchName
@@ -114,14 +116,21 @@ export async function findChildren(parentBranchName: string): Promise<Branch[]> 
 
   const currentChildren = new Set<string>();
   const orphanedChildren = new Set<string>();
-  
+
   parentResults.forEach(({ child, immediateParentCommit, isStale }) => {
-    if (immediateParentCommit === parentCommit) {
+    // Check if immediate parent matches current commit or any stale commit
+    const matchesCurrentCommit = immediateParentCommit === parentCommit;
+    const matchesStaleCommit = staleCommits.has(immediateParentCommit ?? '');
+
+    if (matchesCurrentCommit) {
       if (isStale) {
         orphanedChildren.add(child);
       } else {
         currentChildren.add(child);
       }
+    } else if (matchesStaleCommit) {
+      // Child's parent is a stale commit, so it's orphaned
+      orphanedChildren.add(child);
     }
   });
 
