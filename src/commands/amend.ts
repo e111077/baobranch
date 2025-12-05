@@ -21,6 +21,12 @@ async function amendImpl({
   yesToAll
 }: AmendOptions) {
   try {
+    // Get explicitly staged files (more reliable than parsing porcelain format)
+    const stagedFiles = execCommand('git diff --cached --name-only')
+      .split('\n')
+      .filter(Boolean);
+    const hasStagedFiles = stagedFiles.length > 0;
+
     // Get status and find all matching files
     const status = execCommand('git status --porcelain');
     const files = status.split('\n')
@@ -35,7 +41,7 @@ async function amendImpl({
 
     if (filename) {
       // Find matches based on left-to-right path matching
-      const matchingFiles = files.filter(file => {
+      let matchingFiles = files.filter(file => {
         if (filename.endsWith('/')) {
           return file.path.startsWith(filename);
         }
@@ -45,15 +51,23 @@ async function amendImpl({
         return inputParts.every((part, i) => fileParts[i] === part);
       });
 
+      // If files are already staged, only consider staged files
+      if (hasStagedFiles) {
+        matchingFiles = matchingFiles.filter(f => stagedFiles.includes(f.path));
+      }
+
       if (matchingFiles.length === 0) {
-        logger.error(`No changes found for: ${filename}`);
+        const errorMsg = hasStagedFiles
+          ? `No staged changes found for: ${filename}`
+          : `No changes found for: ${filename}`;
+        logger.error(errorMsg);
         process.exit(1);
       }
 
-      // If multiple matches and it's a directory query, confirm with user
+      // Confirm with user
       if (matchingFiles.length) {
         logger.info('Changes to amend:');
-        matchingFiles.forEach(file => logger.info(`  ${file.status} ${file.path}`));
+        matchingFiles.forEach(file => { logger.info(`  ${file.status} ${file.path}`); });
 
         let confirm = true;
         if (!yesToAll) {
@@ -72,26 +86,36 @@ async function amendImpl({
         }
       }
 
-      // Process all matching files
-      matchingFiles.forEach(file => {
-        if (file.status.startsWith(' D')) {
-          execCommand(`git rm "${file.path}"`);
-        } else {
-          execCommand(`git add "${file.path}"`);
-        }
-      });
+      // Only stage files if nothing was already staged
+      if (!hasStagedFiles) {
+        matchingFiles.forEach(file => {
+          if (file.status.startsWith(' D')) {
+            execCommand(`git rm "${file.path}"`);
+          } else {
+            execCommand(`git add "${file.path}"`);
+          }
+        });
+      }
 
     } else {
+      // If files are already staged, only amend those (don't stage unstaged changes)
+      const filesToShow = hasStagedFiles
+        ? files.filter(f => stagedFiles.includes(f.path))
+        : files;
+
       logger.info('Changes to amend:');
-      files.forEach(file => logger.info(`  ${file.status} ${file.path}`));
+      filesToShow.forEach(file => { logger.info(`  ${file.status} ${file.path}`); });
 
       let confirm = true;
 
       if (!yesToAll) {
+        const message = hasStagedFiles
+          ? 'Amend these staged changes?'
+          : 'Amend all these changes?';
         const choice = await inquirer.prompt([{
           type: 'confirm',
           name: 'confirm',
-          message: 'Amend all these changes?',
+          message,
           default: false
         }]);
 
@@ -103,8 +127,10 @@ async function amendImpl({
         process.exit(0);
       }
 
-      // Add all changes if no specific file
-      execCommand('git add -A');
+      // Only stage all if nothing was already staged
+      if (!hasStagedFiles) {
+        execCommand('git add -A');
+      }
     }
 
     const currentCommit = execCommand('git rev-parse HEAD');
