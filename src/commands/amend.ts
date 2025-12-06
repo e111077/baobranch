@@ -1,5 +1,5 @@
 import type { Argv, CommandModule } from "yargs";
-import { execCommand, logger } from '../utils.js';
+import { execCommandAsync, logger } from '../utils.js';
 import inquirer from 'inquirer';
 import { markStale } from "../tags/stale.js";
 
@@ -22,22 +22,24 @@ async function amendImpl({
 }: AmendOptions) {
   try {
     // Get explicitly staged files (more reliable than parsing porcelain format)
-    const stagedFiles = execCommand('git diff --cached --name-only')
-      .split('\n')
-      .filter(Boolean);
-    const hasStagedFiles = stagedFiles.length > 0;
+    const stagedFilesPromise = execCommandAsync('git diff --cached --name-only')
+      .then(result => result.split('\n').filter(Boolean));
 
     // Get status and find all matching files
-    const status = execCommand('git status --porcelain');
+    const status = await execCommandAsync('git status --porcelain');
     const files = status.split('\n')
       .map(line => {
-        const match = line.match(/^\s*(.)\s+(.+)$/);
+        // git status --porcelain format: XY PATH (X=index status, Y=working tree status)
+        const match = line.match(/^(..) (.+)$/);
         return match ? {
           status: match[1],
           path: match[2]
         } : null;
       })
       .filter((file): file is { status: string, path: string } => file !== null);
+
+      const stagedFiles = await stagedFilesPromise;
+      const hasStagedFiles = stagedFiles.length > 0;
 
     if (filename) {
       // Find matches based on left-to-right path matching
@@ -88,13 +90,13 @@ async function amendImpl({
 
       // Only stage files if nothing was already staged
       if (!hasStagedFiles) {
-        matchingFiles.forEach(file => {
+        for (const file of matchingFiles) {
           if (file.status.startsWith(' D')) {
-            execCommand(`git rm "${file.path}"`);
+            await execCommandAsync(`git rm "${file.path}"`);
           } else {
-            execCommand(`git add "${file.path}"`);
+            await execCommandAsync(`git add "${file.path}"`);
           }
-        });
+        }
       }
 
     } else {
@@ -129,15 +131,15 @@ async function amendImpl({
 
       // Only stage all if nothing was already staged
       if (!hasStagedFiles) {
-        execCommand('git add -A');
+        await execCommandAsync('git add -A');
       }
     }
 
-    const currentCommit = execCommand('git rev-parse HEAD');
-    const currentBranch = execCommand('git rev-parse --abbrev-ref HEAD');
+    const currentCommit = await execCommandAsync('git rev-parse HEAD');
+    const currentBranch = await execCommandAsync('git rev-parse --abbrev-ref HEAD');
 
     // Amend the commit without changing the message
-    execCommand('git commit --amend --no-edit --allow-empty', true);
+    await execCommandAsync('git commit --amend --no-edit --allow-empty', true);
     logger.info('Successfully amended changes to previous commit');
     markStale(currentCommit, currentBranch, true);
 
