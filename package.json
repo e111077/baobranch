@@ -1,6 +1,6 @@
 {
   "name": "baobranch",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -17,17 +17,20 @@
     "type": "git",
     "url": "git+https://github.com/e111077/baobranch.git"
   },
+  "engines": {
+    "node": "24"
+  },
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@types/dotenv": "^8.2.3",
-    "@types/node": "^22.9.0",
+    "@types/node": "^24.0.0",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^8.13.0",
     "@typescript-eslint/parser": "^8.13.0",
     "eslint": "^9.14.0",
     "eslint-plugin-import": "^2.31.0",
-    "rolldown": "^1.0.0-beta.43",
+    "rolldown": "^1.0.0-rc.5",
     "typescript": "^5.6.3"
   },
   "dependencies": {
